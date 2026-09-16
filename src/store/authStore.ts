@@ -1,0 +1,6 @@
+import { create } from 'zustand';
+import type { User } from '../types/auth';
+import { secureStorage } from '../services/secureStorage';
+type AuthState = { accessToken: string | null; user: User | null; isAuthenticated: boolean; isInitializing: boolean; restoreSession: () => Promise<void>; setSession: (token: string, user: User) => Promise<void>; clearSession: () => Promise<void> };
+function tokenUser(token: string): User | null { try { const part=token.split('.')[0]; const json=JSON.parse(globalThis.atob(part.replace(/-/g,'+').replace(/_/g,'/'))); return { id: json.sub, role: json.role }; } catch { return null; } }
+export const useAuthStore = create<AuthState>((set) => ({ accessToken: null, user: null, isAuthenticated: false, isInitializing: true, restoreSession: async () => { const token=await secureStorage.getAccessToken(); const user=token ? tokenUser(token) : null; set({ accessToken: token, user, isAuthenticated: Boolean(token && user), isInitializing: false }); }, setSession: async (accessToken, user) => { await secureStorage.setAccessToken(accessToken); set({ accessToken, user, isAuthenticated: true, isInitializing: false }); }, clearSession: async () => { await secureStorage.removeAccessToken(); set({ accessToken: null, user: null, isAuthenticated: false }); } }));

@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "SmashPoint",
+    "slug": "smashpoint-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "smashpoint",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/smashpoint-icon.png",
+    "splash": {
+      "image": "./assets/smashpoint-splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#123B2A"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "android": {
+      "package": "com.smashpoint.mobile",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/smashpoint-adaptive-icon.png",
+        "backgroundColor": "#123B2A"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.smashpoint.mobile",
+      "buildNumber": "1"
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "1b661914-88fe-4e0f-bf2b-e19be13c49f4"
+      }
+    },
+    "owner": "smashpoint"
+  }
+}
