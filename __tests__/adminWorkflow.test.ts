@@ -1,1 +1,44 @@
-import{isPendingApproval,adminActions,approvePayload,rejectPayload,rejectionReason,isWorkflowConflict,canSubmitDecision,adminQueryKeys}from'../src/features/admin/helpers';test('admin access and pending filter contract',()=>{expect(isPendingApproval('PENDING_ADMIN_APPROVAL')).toBe(true);expect(isPendingApproval('DRAFT')).toBe(false);expect(adminActions('PENDING_ADMIN_APPROVAL')).toEqual({canApprove:true,canReject:true,canPublish:false});expect(adminActions('APPROVED').canApprove).toBe(false)});test('approval and rejection payloads match backend',()=>{expect(approvePayload('a1')).toEqual({adminUserId:'a1'});expect(rejectPayload('a1','Incomplete details')).toEqual({adminUserId:'a1',reason:'Incomplete details'})});test('rejection and decision pending guards',()=>{expect(rejectionReason('  ')).toBe(false);expect(rejectionReason('reason')).toBe(true);expect(canSubmitDecision(true)).toBe(false);expect(canSubmitDecision(false)).toBe(true)});test('stale workflow conflicts are recognized without local success',()=>{expect(isWorkflowConflict({status:409,message:'INVALID_TOURNAMENT_STATUS_TRANSITION'})).toBe(true);expect(isWorkflowConflict({status:500,message:'network'})).toBe(false);expect(adminQueryKeys.pending).toEqual(['admin-pending'])});test('cross-role statuses remain server-compatible',()=>{expect(adminActions('REJECTED').canPublish).toBe(false);expect(adminActions('APPROVED').canPublish).toBe(false)});
+import {
+  isPendingApproval,
+  adminActions,
+  approvePayload,
+  rejectPayload,
+  rejectionReason,
+  isWorkflowConflict,
+  canSubmitDecision,
+  adminQueryKeys,
+} from '../src/features/admin/helpers';
+test('admin access and pending filter contract', () => {
+  expect(isPendingApproval('PENDING_ADMIN_APPROVAL')).toBe(true);
+  expect(isPendingApproval('DRAFT')).toBe(false);
+  expect(adminActions('PENDING_ADMIN_APPROVAL')).toEqual({
+    canApprove: true,
+    canReject: true,
+    canPublish: false,
+  });
+  expect(adminActions('APPROVED').canApprove).toBe(false);
+});
+test('approval and rejection payloads match backend', () => {
+  expect(approvePayload('a1')).toEqual({ adminUserId: 'a1' });
+  expect(rejectPayload('a1', 'Incomplete details')).toEqual({
+    adminUserId: 'a1',
+    reason: 'Incomplete details',
+  });
+});
+test('rejection and decision pending guards', () => {
+  expect(rejectionReason('  ')).toBe(false);
+  expect(rejectionReason('reason')).toBe(true);
+  expect(canSubmitDecision(true)).toBe(false);
+  expect(canSubmitDecision(false)).toBe(true);
+});
+test('stale workflow conflicts are recognized without local success', () => {
+  expect(isWorkflowConflict({ status: 409, message: 'INVALID_TOURNAMENT_STATUS_TRANSITION' })).toBe(
+    true,
+  );
+  expect(isWorkflowConflict({ status: 500, message: 'network' })).toBe(false);
+  expect(adminQueryKeys.pending).toEqual(['admin-pending']);
+});
+test('cross-role statuses remain server-compatible', () => {
+  expect(adminActions('REJECTED').canPublish).toBe(false);
+  expect(adminActions('APPROVED').canPublish).toBe(true);
+});

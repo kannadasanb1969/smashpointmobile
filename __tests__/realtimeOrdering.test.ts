@@ -1,1 +1,16 @@
-import{parseMatchRealtimeEvent}from'../src/api/realtime/matchRealtime';test('realtime preserves absolute scores and ordering metadata',()=>{const e=parseMatchRealtimeEvent(JSON.stringify({type:'MATCH_SCORE_UPDATED',matchId:'m',status:'LIVE',participant1Score:31,participant2Score:30,updatedAt:'2026-01-02'}),'m');expect(e?.participant1Score).toBe(31);expect(e?.updatedAt).toBe('2026-01-02')});
+import { parseMatchRealtimeEvent } from '../src/api/realtime/matchRealtime';
+test('realtime preserves absolute scores and ordering metadata', () => {
+  const e = parseMatchRealtimeEvent(
+    JSON.stringify({
+      type: 'MATCH_SCORE_UPDATED',
+      matchId: 'm',
+      status: 'LIVE',
+      participant1Score: 31,
+      participant2Score: 30,
+      updatedAt: '2026-01-02',
+    }),
+    'm',
+  );
+  expect(e?.participant1Score).toBe(31);
+  expect(e?.updatedAt).toBe('2026-01-02');
+});

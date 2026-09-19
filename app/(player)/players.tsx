@@ -1,1 +1,68 @@
-import { FlatList, Text, TextInput, View, StyleSheet } from 'react-native'; import { useMemo, useState } from 'react'; import { ScreenContainer } from '../../src/components/common/ScreenContainer'; import { usePlayers } from '../../src/features/player/api'; import { QueryState } from '../../src/components/feedback/QueryState'; import { colors } from '../../src/theme'; export default function Players(){const [search,setSearch]=useState('');const q=usePlayers();const data=useMemo(()=>((q.data||[]) as any[]).filter(p=>!search||String(p.fullName).toLowerCase().includes(search.toLowerCase())||String(p.playerCode).toLowerCase().includes(search.toLowerCase())),[q.data,search]);return <ScreenContainer><Text style={s.title}>Players</Text><TextInput accessibilityLabel="Search players" placeholder="Search by name or code" value={search} onChangeText={setSearch} style={s.input}/><QueryState loading={q.isLoading} error={q.isError} empty={!q.isLoading&&!q.isError&&!data.length} onRetry={()=>q.refetch()}/><FlatList data={data} keyExtractor={p=>p.id} renderItem={({item})=><View style={s.card}><Text style={s.name}>{item.fullName}</Text><Text style={s.meta}>{item.playerCode} · {item.location||'Location not provided'}</Text></View>}/></ScreenContainer>} const s=StyleSheet.create({title:{fontSize:30,fontWeight:'800',color:colors.text,marginTop:35,marginBottom:14},input:{backgroundColor:colors.white,borderWidth:1,borderColor:colors.border,borderRadius:14,padding:14},card:{backgroundColor:colors.white,padding:18,borderRadius:16,marginTop:10},name:{fontSize:17,fontWeight:'700',color:colors.text},meta:{color:colors.muted,marginTop:6}});
+import { FlatList, Text, TextInput, View, StyleSheet } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ScreenContainer } from '../../src/components/common/ScreenContainer';
+import { BottomNav } from '../../src/components/common/BottomNav';
+import { usePlayers } from '../../src/features/player/api';
+import { QueryState } from '../../src/components/feedback/QueryState';
+import { colors } from '../../src/theme';
+export default function Players() {
+  const [search, setSearch] = useState('');
+  const q = usePlayers();
+  const data = useMemo(
+    () =>
+      ((q.data || []) as any[]).filter(
+        (p) =>
+          (p.profileStatus ?? p.profile_status) === 'ACTIVE' &&
+          (!search ||
+            String(p.fullName).toLowerCase().includes(search.toLowerCase()) ||
+            String(p.playerCode).toLowerCase().includes(search.toLowerCase())),
+      ),
+    [q.data, search],
+  );
+  return (
+    <ScreenContainer>
+      <Text style={s.title}>Players</Text>
+      <TextInput
+        accessibilityLabel="Search players"
+        placeholder="Search by name or code"
+        value={search}
+        onChangeText={setSearch}
+        style={s.input}
+      />
+      <QueryState
+        loading={q.isLoading}
+        error={q.isError}
+        empty={!q.isLoading && !q.isError && !data.length}
+        onRetry={() => q.refetch()}
+      />
+      <FlatList
+        style={s.list}
+        data={data}
+        keyExtractor={(p) => p.id}
+        renderItem={({ item }) => (
+          <View style={s.card}>
+            <Text style={s.name}>{item.fullName}</Text>
+            <Text style={s.meta}>
+              {item.playerCode} · {item.location || 'Location not provided'}
+            </Text>
+          </View>
+        )}
+      />
+      <BottomNav active="Players" />
+    </ScreenContainer>
+  );
+}
+const s = StyleSheet.create({
+  title: { fontSize: 30, fontWeight: '800', color: colors.text, marginTop: 35, marginBottom: 14 },
+  input: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 14,
+  },
+  list: { flex: 1 },
+  card: { backgroundColor: colors.white, padding: 18, borderRadius: 16, marginTop: 10 },
+  name: { fontSize: 17, fontWeight: '700', color: colors.text },
+  meta: { color: colors.muted, marginTop: 6 },
+});

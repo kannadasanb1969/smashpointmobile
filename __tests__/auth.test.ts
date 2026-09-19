@@ -1,1 +1,17 @@
-import{isFiveDigitOtp,isValidMobile,roleRoute}from'../src/utils/phase4Helpers';test('OTP accepts exactly five digits',()=>{expect(isFiveDigitOtp('12345')).toBe(true);expect(isFiveDigitOtp('1234')).toBe(false);expect(isFiveDigitOtp('123456')).toBe(false);expect(isFiveDigitOtp('12a45')).toBe(false)});test('mobile validation follows backend shape',()=>{expect(isValidMobile('+919876543210')).toBe(true);expect(isValidMobile('123')).toBe(false)});test('roles map to production groups and unknown is safe',()=>{expect(roleRoute('PLAYER')).toBe('/(player)');expect(roleRoute('ORGANIZER')).toBe('/(organizer)');expect(roleRoute('ADMIN')).toBe('/(admin)');expect(roleRoute('X')).toBe('/(auth)/login')});
+import { isFiveDigitOtp, isValidMobile, roleRoute } from '../src/utils/authAndRegistrationHelpers';
+test('OTP accepts exactly five digits', () => {
+  expect(isFiveDigitOtp('12345')).toBe(true);
+  expect(isFiveDigitOtp('1234')).toBe(false);
+  expect(isFiveDigitOtp('123456')).toBe(false);
+  expect(isFiveDigitOtp('12a45')).toBe(false);
+});
+test('mobile validation follows backend shape', () => {
+  expect(isValidMobile('+919876543210')).toBe(true);
+  expect(isValidMobile('123')).toBe(false);
+});
+test('roles map to production groups and unknown is safe', () => {
+  expect(roleRoute('PLAYER')).toBe('/(player)');
+  expect(roleRoute('ORGANIZER')).toBe('/(organizer)');
+  expect(roleRoute('ADMIN')).toBe('/(admin)');
+  expect(roleRoute('X')).toBe('/(auth)/login');
+});

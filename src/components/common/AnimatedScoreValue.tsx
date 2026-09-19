@@ -1,1 +1,47 @@
-import{Animated,AccessibilityInfo,Text,StyleSheet}from'react-native';import{useEffect,useRef,useState}from'react';export const scoreTransition=(previous:number|undefined,next:number,status?:string)=>previous===undefined||previous===next||status==='COMPLETED'?'NONE':next>previous?'UP':'DOWN';export function AnimatedScoreValue({value,disabled=false,status}:{value:number;disabled?:boolean;status?:string}){const previous=useRef<number>();const[reduce,setReduce]=useState(false);const opacity=useRef(new Animated.Value(1)).current;const translate=useRef(new Animated.Value(0)).current;useEffect(()=>{AccessibilityInfo.isReduceMotionEnabled().then(setReduce);const sub=AccessibilityInfo.addEventListener('reduceMotionChanged',setReduce);return()=>sub.remove()},[]);useEffect(()=>{const direction=scoreTransition(previous.current,value,status);previous.current=value;if(disabled||reduce||direction==='NONE')return;translate.setValue(direction==='UP'?8:-8);Animated.parallel([Animated.timing(opacity,{toValue:0.3,duration:160,useNativeDriver:true}),Animated.timing(translate,{toValue:0,duration:220,useNativeDriver:true})]).start(()=>Animated.timing(opacity,{toValue:1,duration:120,useNativeDriver:true}).start())},[value,disabled,reduce,status,opacity,translate]);return <Animated.View style={{opacity,transform:[{translateY:translate}]}}><Text accessibilityLabel={`Score ${value}`}style={s.score}>{value}</Text></Animated.View>}const s=StyleSheet.create({score:{fontSize:54,fontWeight:'900',color:'#087f5b'} });
+import { Animated, AccessibilityInfo, Text, StyleSheet } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+export const scoreTransition = (previous: number | undefined, next: number, status?: string) =>
+  previous === undefined || previous === next || status === 'COMPLETED'
+    ? 'NONE'
+    : next > previous
+      ? 'UP'
+      : 'DOWN';
+export function AnimatedScoreValue({
+  value,
+  disabled = false,
+  status,
+}: {
+  value: number;
+  disabled?: boolean;
+  status?: string;
+}) {
+  const previous = useRef<number>();
+  const [reduce, setReduce] = useState(false);
+  const opacity = useRef(new Animated.Value(1)).current;
+  const translate = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled().then(setReduce);
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduce);
+    return () => sub.remove();
+  }, []);
+  useEffect(() => {
+    const direction = scoreTransition(previous.current, value, status);
+    previous.current = value;
+    if (disabled || reduce || direction === 'NONE') return;
+    translate.setValue(direction === 'UP' ? 8 : -8);
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 0.3, duration: 160, useNativeDriver: true }),
+      Animated.timing(translate, { toValue: 0, duration: 220, useNativeDriver: true }),
+    ]).start(() =>
+      Animated.timing(opacity, { toValue: 1, duration: 120, useNativeDriver: true }).start(),
+    );
+  }, [value, disabled, reduce, status, opacity, translate]);
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY: translate }] }}>
+      <Text accessibilityLabel={`Score ${value}`} style={s.score}>
+        {value}
+      </Text>
+    </Animated.View>
+  );
+}
+const s = StyleSheet.create({ score: { fontSize: 54, fontWeight: '900', color: '#087f5b' } });

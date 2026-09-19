@@ -1,1 +1,42 @@
-import{resolvePartnerName,filterTournaments,eligibilityAllows}from'../src/utils/phase4Helpers';const rows=[{name:'Open Cup',status:'PUBLISHED',categories:[{eventType:'SINGLES',registrationPhase:'OPEN'}]},{name:'Closed Doubles',status:'PUBLISHED',categories:[{eventType:'DOUBLES',registrationPhase:'CLOSED'}]},{name:'Finals',status:'COMPLETED',categories:[{eventType:'SINGLES'}]}];test('filters compose search status and event',()=>{expect(filterTournaments(rows,'open','SINGLES','PUBLISHED')).toHaveLength(1);expect(filterTournaments(rows,'closed','DOUBLES','PUBLISHED')).toHaveLength(1);expect(filterTournaments(rows,'','SINGLES','COMPLETED')).toHaveLength(1)});test('partner resolution distinguishes singles/player/guest/fallback',()=>{const p={eventType:'DOUBLES' as const,partnerId:'p2',partnerType:'PLAYER' as const};expect(resolvePartnerName({eventType:'SINGLES'},[],[])).toBeNull();expect(resolvePartnerName(p,[{id:'p2',fullName:'Existing Player'}],[])).toBe('Existing Player');expect(resolvePartnerName({...p,partnerType:'GUEST',partnerId:'g1'},[],[{id:'g1',fullName:'Guest Player'}])).toBe('Guest Player');expect(resolvePartnerName({...p,partnerId:'x'},[],[])).toBe('Partner details unavailable')});test('backend eligibility result gates registration',()=>{expect(eligibilityAllows({eligible:true})).toBe(true);expect(eligibilityAllows({eligible:false})).toBe(false)});
+import {
+  resolvePartnerName,
+  filterTournaments,
+  eligibilityAllows,
+} from '../src/utils/authAndRegistrationHelpers';
+const rows = [
+  {
+    name: 'Open Cup',
+    status: 'PUBLISHED',
+    categories: [{ eventType: 'SINGLES', registrationPhase: 'OPEN' }],
+  },
+  {
+    name: 'Closed Doubles',
+    status: 'PUBLISHED',
+    categories: [{ eventType: 'DOUBLES', registrationPhase: 'CLOSED' }],
+  },
+  { name: 'Finals', status: 'COMPLETED', categories: [{ eventType: 'SINGLES' }] },
+];
+test('filters compose search status and event', () => {
+  expect(filterTournaments(rows, 'open', 'SINGLES', 'PUBLISHED')).toHaveLength(1);
+  expect(filterTournaments(rows, 'closed', 'DOUBLES', 'PUBLISHED')).toHaveLength(1);
+  expect(filterTournaments(rows, '', 'SINGLES', 'COMPLETED')).toHaveLength(1);
+});
+test('partner resolution distinguishes singles/player/guest/fallback', () => {
+  const p = { eventType: 'DOUBLES' as const, partnerId: 'p2', partnerType: 'PLAYER' as const };
+  expect(resolvePartnerName({ eventType: 'SINGLES' }, [], [])).toBeNull();
+  expect(resolvePartnerName(p, [{ id: 'p2', fullName: 'Existing Player' }], [])).toBe(
+    'Existing Player',
+  );
+  expect(
+    resolvePartnerName(
+      { ...p, partnerType: 'GUEST', partnerId: 'g1' },
+      [],
+      [{ id: 'g1', fullName: 'Guest Player' }],
+    ),
+  ).toBe('Guest Player');
+  expect(resolvePartnerName({ ...p, partnerId: 'x' }, [], [])).toBe('Partner details unavailable');
+});
+test('backend eligibility result gates registration', () => {
+  expect(eligibilityAllows({ eligible: true })).toBe(true);
+  expect(eligibilityAllows({ eligible: false })).toBe(false);
+});

@@ -1,1 +1,41 @@
-import{normalizeTime,toApiTime,cleanCategories,organizerActions}from'../src/features/organizer/helpers';const c={uiKey:'tmp',name:'Doubles',eventType:'DOUBLES' as const,genderEligibility:'ANY' as const,minAge:null,maxAge:null,maxTeams:8,medalistsAllowed:true,openPlayersAllowed:true,beginnerOnly:false,pureBeginnerOnly:false,additionalRuleNotes:null};test('normalizes API and form time values',()=>{expect(normalizeTime('14:30:00')).toBe('14:30');expect(normalizeTime('14:30')).toBe('14:30');expect(toApiTime('14:30')).toBe('14:30:00')});test('preserves existing IDs and strips UI keys',()=>{expect(cleanCategories([{...c,id:'cat-1'}])[0]).toEqual(expect.objectContaining({id:'cat-1'}));expect(cleanCategories([c])[0]).not.toHaveProperty('uiKey')});test('maps organizer workflow actions',()=>{expect(organizerActions('DRAFT')).toEqual({canEdit:true,canSubmit:true,canApprove:false,canReject:false});expect(organizerActions('PUBLISHED').canEdit).toBe(false);expect(organizerActions('REJECTED').canSubmit).toBe(true)});
+import {
+  normalizeTime,
+  toApiTime,
+  cleanCategories,
+  organizerActions,
+} from '../src/features/organizer/helpers';
+const c = {
+  uiKey: 'tmp',
+  name: 'Doubles',
+  eventType: 'DOUBLES' as const,
+  genderEligibility: 'ANY' as const,
+  minAge: null,
+  maxAge: null,
+  maxTeams: 8,
+  medalistsAllowed: true,
+  openPlayersAllowed: true,
+  beginnerOnly: false,
+  pureBeginnerOnly: false,
+  additionalRuleNotes: null,
+};
+test('normalizes API and form time values', () => {
+  expect(normalizeTime('14:30:00')).toBe('14:30');
+  expect(normalizeTime('14:30')).toBe('14:30');
+  expect(toApiTime('14:30')).toBe('14:30:00');
+});
+test('preserves existing IDs and strips UI keys', () => {
+  expect(cleanCategories([{ ...c, id: 'cat-1' }])[0]).toEqual(
+    expect.objectContaining({ id: 'cat-1' }),
+  );
+  expect(cleanCategories([c])[0]).not.toHaveProperty('uiKey');
+});
+test('maps organizer workflow actions', () => {
+  expect(organizerActions('DRAFT')).toEqual({
+    canEdit: true,
+    canSubmit: true,
+    canApprove: false,
+    canReject: false,
+  });
+  expect(organizerActions('PUBLISHED').canEdit).toBe(false);
+  expect(organizerActions('REJECTED').canSubmit).toBe(true);
+});

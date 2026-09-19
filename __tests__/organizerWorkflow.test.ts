@@ -1,1 +1,28 @@
-import{organizerActions,canMutate,cleanCategories}from'../src/features/organizer/helpers';test('only organizer workflow actions are exposed',()=>{expect(organizerActions('DRAFT').canApprove).toBe(false);expect(organizerActions('DRAFT').canReject).toBe(false);expect(organizerActions('PUBLISHED').canEdit).toBe(false)});test('submit is gated while pending',()=>{expect(canMutate(false)).toBe(true);expect(canMutate(true)).toBe(false)});test('nested create/update payload keeps category IDs and strips UI keys',()=>{const category={uiKey:'new',name:'Singles',eventType:'SINGLES' as const,genderEligibility:'ANY' as const,minAge:null,maxAge:null,maxTeams:null,medalistsAllowed:true,openPlayersAllowed:true,beginnerOnly:false,pureBeginnerOnly:false,additionalRuleNotes:null};expect(cleanCategories([{...category,id:'server-id'}])[0]).toHaveProperty('id','server-id');expect(cleanCategories([category])[0]).not.toHaveProperty('uiKey')});
+import { organizerActions, canMutate, cleanCategories } from '../src/features/organizer/helpers';
+test('only organizer workflow actions are exposed', () => {
+  expect(organizerActions('DRAFT').canApprove).toBe(false);
+  expect(organizerActions('DRAFT').canReject).toBe(false);
+  expect(organizerActions('PUBLISHED').canEdit).toBe(false);
+});
+test('submit is gated while pending', () => {
+  expect(canMutate(false)).toBe(true);
+  expect(canMutate(true)).toBe(false);
+});
+test('nested create/update payload keeps category IDs and strips UI keys', () => {
+  const category = {
+    uiKey: 'new',
+    name: 'Singles',
+    eventType: 'SINGLES' as const,
+    genderEligibility: 'ANY' as const,
+    minAge: null,
+    maxAge: null,
+    maxTeams: null,
+    medalistsAllowed: true,
+    openPlayersAllowed: true,
+    beginnerOnly: false,
+    pureBeginnerOnly: false,
+    additionalRuleNotes: null,
+  };
+  expect(cleanCategories([{ ...category, id: 'server-id' }])[0]).toHaveProperty('id', 'server-id');
+  expect(cleanCategories([category])[0]).not.toHaveProperty('uiKey');
+});

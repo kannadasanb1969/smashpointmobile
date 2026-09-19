@@ -1,1 +1,55 @@
-import{Text,StyleSheet,ScrollView,RefreshControl,View}from'react-native';import{router}from'expo-router';import{ScreenContainer}from'../../src/components/common/ScreenContainer';import{PrimaryButton}from'../../src/components/common/PrimaryButton';import{useFriendlyList}from'../../src/features/player/friendly';import{colors}from'../../src/theme';export default function Friendly(){const q=useFriendlyList();return <ScreenContainer><ScrollView refreshControl={<RefreshControl refreshing={q.isFetching}onRefresh={()=>q.refetch()}/>}><Text style={s.title}>Friendly Match</Text><PrimaryButton title="Create Friendly Match"onPress={()=>router.push('/(player)/friendly/create')}/>{q.isLoading&&<Text>Loading…</Text>}{q.isError&&<Text onPress={()=>q.refetch()}style={s.error}>Unable to load matches. Retry</Text>}{!q.isLoading&&!q.isError&&!(q.data||[]).length&&<Text style={s.meta}>No friendly matches available.</Text>}{(q.data||[]).map((m:any)=><View key={m.id}style={s.card}><Text style={s.name}>{m.title}</Text><Text style={s.meta}>{m.event_type} · {m.format}</Text><Text style={s.meta}>{m.participant_count??0}/{m.max_players} players · {m.status}</Text><PrimaryButton title="View Details"onPress={()=>router.push({pathname:'/(player)/friendly/[id]',params:{id:String(m.id)}})}/></View>)}</ScrollView></ScreenContainer>}const s=StyleSheet.create({title:{fontSize:30,fontWeight:'800',color:colors.text,marginTop:35},card:{backgroundColor:colors.white,padding:16,borderRadius:14,marginTop:12},name:{fontWeight:'800',fontSize:18,color:colors.text},meta:{color:colors.muted,marginTop:6},error:{color:colors.error}});
+import { Text, StyleSheet, ScrollView, RefreshControl, View } from 'react-native';
+import { router } from 'expo-router';
+import { ScreenContainer } from '../../src/components/common/ScreenContainer';
+import { PrimaryButton } from '../../src/components/common/PrimaryButton';
+import { BottomNav } from '../../src/components/common/BottomNav';
+import { useFriendlyList } from '../../src/features/player/friendly';
+import { colors } from '../../src/theme';
+export default function Friendly() {
+  const q = useFriendlyList();
+  return (
+    <ScreenContainer>
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={q.isFetching} onRefresh={() => q.refetch()} />}
+      >
+        <Text style={s.title}>Friendly Match</Text>
+        <PrimaryButton
+          title="Create Friendly Match"
+          onPress={() => router.push('/(player)/friendly/create')}
+        />
+        {q.isLoading && <Text>Loading…</Text>}
+        {q.isError && (
+          <Text onPress={() => q.refetch()} style={s.error}>
+            Unable to load matches. Retry
+          </Text>
+        )}
+        {!q.isLoading && !q.isError && !(q.data || []).length && (
+          <Text style={s.meta}>No friendly matches available.</Text>
+        )}
+        {(q.data || []).map((m: any) => (
+          <View key={m.id} style={s.card}>
+            <Text style={s.name}>{m.title}</Text>
+            <Text style={s.meta}>
+              {m.event_type} · {m.format}
+            </Text>
+            <Text style={s.meta}>
+              {m.participant_count ?? 0}/{m.max_players} players · {m.status}
+            </Text>
+            <PrimaryButton
+              title="View Details"
+              onPress={() => router.push({ pathname: '/(player)/friendly/[id]', params: { id: String(m.id) } })}
+            />
+          </View>
+        ))}
+      </ScrollView>
+      <BottomNav active="Friendly" />
+    </ScreenContainer>
+  );
+}
+const s = StyleSheet.create({
+  title: { fontSize: 30, fontWeight: '800', color: colors.text, marginTop: 35 },
+  card: { backgroundColor: colors.white, padding: 16, borderRadius: 14, marginTop: 12 },
+  name: { fontWeight: '800', fontSize: 18, color: colors.text },
+  meta: { color: colors.muted, marginTop: 6 },
+  error: { color: colors.error },
+});

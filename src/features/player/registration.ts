@@ -1,4 +1,50 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'; import { apiClient } from '../../api/apiClient';
-export type Partner={id:string;type:'PLAYER'|'GUEST'}; export type RegistrationRequest={tournamentId:string;categoryId:string;playerId:string;partner?:Partner|null}; export type Eligibility={eligible:boolean;reasons:{code:string;message:string}[]}; export type Registration={id:string|number;tournamentId:string|number;categoryId:string|number;status:string}; export const isPlayerRegisteredForCategory=(rows:Registration[]|undefined,tournamentId:string|number,categoryId:string|number)=>Boolean(rows?.some(r=>String(r.tournamentId)===String(tournamentId)&&String(r.categoryId)===String(categoryId)&&['PENDING','REGISTERED','CONFIRMED'].includes(r.status)));
-export const registrationApi={eligibility:async(input:RegistrationRequest)=>(await apiClient.post('/api/eligibility/check',input)).data as Eligibility, create:async(input:RegistrationRequest)=>(await apiClient.post('/api/registrations',input)).data, guest:async(input:Record<string,unknown>)=>(await apiClient.post('/api/guest-players',input)).data};
-export function useRegistration(){const qc=useQueryClient();return useMutation({mutationFn:registrationApi.create,onSuccess:()=>{void qc.invalidateQueries({queryKey:['tournament']});void qc.invalidateQueries({queryKey:['tournaments']});void qc.invalidateQueries({queryKey:['registrations']})}})}
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../../api/apiClient';
+export type Partner = { id: string; type: 'PLAYER' | 'GUEST' };
+export type RegistrationRequest = {
+  tournamentId: string;
+  categoryId: string;
+  playerId: string;
+  partner?: Partner | null;
+};
+export type Eligibility = { eligible: boolean; reasons: { code: string; message: string }[] };
+export type Registration = {
+  id: string | number;
+  tournamentId: string | number;
+  categoryId: string | number;
+  status: string;
+};
+export const isPlayerRegisteredForCategory = (
+  rows: Registration[] | undefined,
+  tournamentId: string | number,
+  categoryId: string | number,
+) =>
+  Boolean(
+    rows?.some(
+      (r) =>
+        String(r.tournamentId) === String(tournamentId) &&
+        String(r.categoryId) === String(categoryId) &&
+        ['PENDING', 'REGISTERED', 'CONFIRMED'].includes(r.status),
+    ),
+  );
+export const registrationApi = {
+  eligibility: async (input: RegistrationRequest) =>
+    (await apiClient.post('/api/eligibility/check', input)).data as Eligibility,
+  create: async (input: RegistrationRequest) =>
+    (await apiClient.post('/api/registrations', input)).data,
+  guest: async (input: Record<string, unknown>) =>
+    (await apiClient.post('/api/guest-players', input)).data,
+  cancel: async (registrationId: string) =>
+    (await apiClient.post(`/api/registrations/${registrationId}/cancel`, {})).data,
+};
+export function useRegistration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: registrationApi.create,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tournament'] });
+      void qc.invalidateQueries({ queryKey: ['tournaments'] });
+      void qc.invalidateQueries({ queryKey: ['registrations'] });
+    },
+  });
+}

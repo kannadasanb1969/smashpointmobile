@@ -1,1 +1,11 @@
-import { Stack } from 'expo-router'; export default function OrganizerLayout(){return <Stack screenOptions={{headerShown:false}}/>}
+import { Stack } from 'expo-router';
+import { View } from 'react-native';
+import { GlobalUserMenu } from '../../src/components/common/GlobalUserMenu';
+export default function OrganizerLayout() {
+  return (
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }} />
+      <GlobalUserMenu />
+    </View>
+  );
+}

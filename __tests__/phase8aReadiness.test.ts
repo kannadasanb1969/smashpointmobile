@@ -6,7 +6,8 @@ import { existsSync } from 'node:fs';
 import easConfig from '../eas.json';
 
 describe('Phase 8A native readiness contracts', () => {
-  test('Expo display name is the product name', () => expect(appConfig.expo.name).toBe('SmashPoint'));
+  test('Expo display name is the product name', () =>
+    expect(appConfig.expo.name).toBe('SmashPoint'));
   test('native identifiers remain stable', () => {
     expect(appConfig.expo.android.package).toBe('com.smashpoint.mobile');
     expect(appConfig.expo.ios.bundleIdentifier).toBe('com.smashpoint.mobile');
@@ -16,7 +17,9 @@ describe('Phase 8A native readiness contracts', () => {
     expect(existsSync('assets/smashpoint-adaptive-icon.png')).toBe(true);
     expect(existsSync('assets/smashpoint-splash.png')).toBe(true);
     expect(appConfig.expo.icon).toBe('./assets/smashpoint-icon.png');
-    expect(appConfig.expo.android.adaptiveIcon.foregroundImage).toBe('./assets/smashpoint-adaptive-icon.png');
+    expect(appConfig.expo.android.adaptiveIcon.foregroundImage).toBe(
+      './assets/smashpoint-adaptive-icon.png',
+    );
     expect(appConfig.expo.splash.image).toBe('./assets/smashpoint-splash.png');
   });
   test('native config requests no camera, photo, or notification permissions', () => {
@@ -25,7 +28,11 @@ describe('Phase 8A native readiness contracts', () => {
     expect(appConfig.expo.plugins).not.toContain('expo-image-picker');
   });
   test('native assets are all square PNG references', () => {
-    for (const asset of [appConfig.expo.icon, appConfig.expo.android.adaptiveIcon.foregroundImage, appConfig.expo.splash.image]) {
+    for (const asset of [
+      appConfig.expo.icon,
+      appConfig.expo.android.adaptiveIcon.foregroundImage,
+      appConfig.expo.splash.image,
+    ]) {
       expect(asset).toMatch(/\.png$/);
     }
   });
@@ -58,6 +65,11 @@ describe('Phase 8A native readiness contracts', () => {
   });
 
   test('invalid room events are safely ignored on device', () => {
-    expect(parseMatchRealtimeEvent('{"type":"MATCH_SCORE_UPDATED","matchId":"other","status":"LIVE"}', 'match-1')).toBeNull();
+    expect(
+      parseMatchRealtimeEvent(
+        '{"type":"MATCH_SCORE_UPDATED","matchId":"other","status":"LIVE"}',
+        'match-1',
+      ),
+    ).toBeNull();
   });
 });

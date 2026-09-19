@@ -1,3 +1,30 @@
-export type OrganizerCategory={id?:string;uiKey?:string;name:string;eventType:'SINGLES'|'DOUBLES';genderEligibility:'MALE'|'FEMALE'|'ANY'|'MIXED';minAge:number|null;maxAge:number|null;maxTeams:number|null;medalistsAllowed:boolean;openPlayersAllowed:boolean;beginnerOnly:boolean;pureBeginnerOnly:boolean;additionalRuleNotes:string|null};
-export const normalizeTime=(value:string|null|undefined)=>{if(!value)return'';const m=value.match(/^(\d{2}:\d{2})/);return m?m[1]:''};export const toApiTime=(value:string)=>/^\d{2}:\d{2}$/.test(value)?`${value}:00`:value;
-export const cleanCategories=(categories:OrganizerCategory[])=>categories.map(({uiKey,...c})=>c);export const organizerActions=(status:string)=>({canEdit:['DRAFT','REJECTED'].includes(status),canSubmit:['DRAFT','REJECTED'].includes(status),canApprove:false,canReject:false});export const canMutate=(pending:boolean)=>!pending;
+export type OrganizerCategory = {
+  id?: string;
+  uiKey?: string;
+  name: string;
+  eventType: 'SINGLES' | 'DOUBLES';
+  genderEligibility: 'MALE' | 'FEMALE' | 'ANY' | 'MIXED';
+  minAge: number | null;
+  maxAge: number | null;
+  maxTeams: number | null;
+  medalistsAllowed: boolean;
+  openPlayersAllowed: boolean;
+  beginnerOnly: boolean;
+  pureBeginnerOnly: boolean;
+  additionalRuleNotes: string | null;
+};
+export const normalizeTime = (value: string | null | undefined) => {
+  if (!value) return '';
+  const m = value.match(/^(\d{2}:\d{2})/);
+  return m ? m[1] : '';
+};
+export const toApiTime = (value: string) => (/^\d{2}:\d{2}$/.test(value) ? `${value}:00` : value);
+export const cleanCategories = (categories: OrganizerCategory[]) =>
+  categories.map(({ uiKey, ...c }) => c);
+export const organizerActions = (status: string) => ({
+  canEdit: ['DRAFT', 'REJECTED'].includes(status),
+  canSubmit: ['DRAFT', 'REJECTED'].includes(status),
+  canApprove: false,
+  canReject: false,
+});
+export const canMutate = (pending: boolean) => !pending;

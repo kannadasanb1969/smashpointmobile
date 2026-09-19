@@ -1,1 +1,26 @@
-import{apiClient}from'../src/api/apiClient';import{friendlyApi}from'../src/features/player/friendly';jest.mock('../src/api/apiClient',()=>({apiClient:{get:jest.fn(),post:jest.fn()}}));const c=apiClient as any;beforeEach(()=>jest.clearAllMocks());test('friendly contracts use production helpers',async()=>{c.post.mockResolvedValue({data:{}});c.get.mockResolvedValue({data:[]});await friendlyApi.create({title:'x',eventType:'SINGLES',format:'LEAGUE',maxPlayers:6});expect(c.post).toHaveBeenCalledWith('/api/friendly-matches',{title:'x',eventType:'SINGLES',format:'LEAGUE',maxPlayers:6});await friendlyApi.join('m');expect(c.post).toHaveBeenCalledWith('/api/friendly-matches/m/join',{});await friendlyApi.requests('m');expect(c.get).toHaveBeenCalledWith('/api/friendly-matches/m/join-requests');await friendlyApi.approve({id:'m',requestId:'r'});expect(c.post).toHaveBeenCalledWith('/api/friendly-matches/m/join-requests/r/approve',{});await friendlyApi.reject({id:'m',requestId:'r'});expect(c.post).toHaveBeenCalledWith('/api/friendly-matches/m/join-requests/r/reject',{});await friendlyApi.participants('m');expect(c.get).toHaveBeenCalledWith('/api/friendly-matches/m/participants')});
+import { apiClient } from '../src/api/apiClient';
+import { friendlyApi } from '../src/features/player/friendly';
+jest.mock('../src/api/apiClient', () => ({ apiClient: { get: jest.fn(), post: jest.fn() } }));
+const c = apiClient as any;
+beforeEach(() => jest.clearAllMocks());
+test('friendly contracts use production helpers', async () => {
+  c.post.mockResolvedValue({ data: {} });
+  c.get.mockResolvedValue({ data: [] });
+  await friendlyApi.create({ title: 'x', eventType: 'SINGLES', format: 'LEAGUE', maxPlayers: 6 });
+  expect(c.post).toHaveBeenCalledWith('/api/friendly-matches', {
+    title: 'x',
+    eventType: 'SINGLES',
+    format: 'LEAGUE',
+    maxPlayers: 6,
+  });
+  await friendlyApi.join('m');
+  expect(c.post).toHaveBeenCalledWith('/api/friendly-matches/m/join', {});
+  await friendlyApi.requests('m');
+  expect(c.get).toHaveBeenCalledWith('/api/friendly-matches/m/join-requests');
+  await friendlyApi.approve({ id: 'm', requestId: 'r' });
+  expect(c.post).toHaveBeenCalledWith('/api/friendly-matches/m/join-requests/r/approve', {});
+  await friendlyApi.reject({ id: 'm', requestId: 'r' });
+  expect(c.post).toHaveBeenCalledWith('/api/friendly-matches/m/join-requests/r/reject', {});
+  await friendlyApi.participants('m');
+  expect(c.get).toHaveBeenCalledWith('/api/friendly-matches/m/participants');
+});
