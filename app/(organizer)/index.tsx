@@ -2,6 +2,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, Pressable, View } from 'r
 import { router } from 'expo-router';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
 import { useAuthStore } from '../../src/store/authStore';
+import { authApi } from '../../src/api/apiClient';
 import { useOrganizerTournaments } from '../../src/features/organizer/api';
 import { colors, radius, shadows, spacing } from '../../src/theme';
 import { PrimaryButton } from '../../src/components/common/PrimaryButton';
@@ -124,6 +125,7 @@ export default function Organizer() {
         )}
         <Text
           onPress={async () => {
+            try { await authApi.logout(); } catch { /* local logout must still complete */ }
             await useAuthStore.getState().clearSession();
             router.replace('/(auth)/login');
           }}

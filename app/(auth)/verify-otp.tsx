@@ -18,7 +18,7 @@ export default function VerifyOtp() {
   const [otp, setOtp] = useState('');
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState(false);
-  const setSession = useAuthStore((s) => s.setSession);
+  const setSession = useAuthStore((s) => s.setAccessSession);
   const setWorkspace = useAuthStore((s) => s.setWorkspace);
 
   const verify = async () => {
@@ -27,8 +27,8 @@ export default function VerifyOtp() {
     try {
       const normalizedMobile = normalizeAuthMobile(displayMobile);
       const response = await authApi.verifyOtp(normalizedMobile, otp, workspace);
-      const data = response.data as { accessToken: string; user: Parameters<typeof setSession>[1] };
-      await setSession(data.accessToken, data.user);
+      const data = response.data as { accessToken: string; refreshToken: string; user: Parameters<typeof setSession>[2] };
+      await setSession(data.accessToken, data.refreshToken, data.user);
       await setWorkspace(workspace);
       router.replace(
         workspace === 'PLAYER'

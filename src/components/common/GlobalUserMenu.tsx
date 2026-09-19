@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
+import { authApi } from '../../api/apiClient';
 import { colors, radius, spacing } from '../../theme';
 
 export function GlobalUserMenu() {
@@ -20,6 +21,7 @@ export function GlobalUserMenu() {
         style: 'destructive',
         onPress: async () => {
           setOpen(false);
+          try { await authApi.logout(); } catch { /* local logout must still complete */ }
           await clearSession();
           await queryClient.cancelQueries();
           queryClient.clear();

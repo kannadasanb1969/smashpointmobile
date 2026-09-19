@@ -36,7 +36,25 @@ export const authApi = {
   // "select workspace after verifying" endpoint, so it must be collected before this call.
   verifyOtp: (mobile: string, otp: string, role: 'PLAYER' | 'ORGANIZER' | 'ADMIN') =>
     apiClient.post('/api/auth/verify-otp', { mobile: normalizeAuthMobile(mobile), otp, role }),
+  logout: async () => {
+    const refreshToken = await secureStorage.getRefreshToken();
+    if (refreshToken) await axios.post(`${env.apiBaseUrl}/api/auth/logout`, { refreshToken }, { timeout: 10000 });
+  },
 };
+let refreshInFlight: Promise<string | null> | null = null;
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = await secureStorage.getRefreshToken();
+  if (!refreshToken) return null;
+  const response = await axios.post(`${env.apiBaseUrl}/api/auth/refresh`, { refreshToken }, { timeout: 15000 });
+  const body = response.data?.data ?? response.data;
+  if (!body?.accessToken || !body?.refreshToken || !body?.user) return null;
+  await useAuthStore.getState().setAccessSession(body.accessToken, body.refreshToken, body.user);
+  return body.accessToken;
+}
+function sharedRefresh() {
+  if (!refreshInFlight) refreshInFlight = refreshAccessToken().finally(() => { refreshInFlight = null; });
+  return refreshInFlight;
+}
 apiClient.interceptors.request.use(async (config) => {
   const token = useAuthStore.getState().accessToken || (await secureStorage.getAccessToken());
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -56,8 +74,29 @@ apiClient.interceptors.response.use(
   },
   async (error: unknown) => {
     const e = error as AxiosError<{ message?: string }>;
-    if (e.response?.status === 401) await useAuthStore.getState().expireSession();
     const detail = e.response?.data?.message || e.message || 'Unable to reach the API';
+    if (!env.isProduction && e.response) {
+      console.info('[Auth] API authentication failure', {
+        status: e.response.status,
+        url: e.config?.url,
+        message: detail,
+      });
+    }
+    const config = e.config as (typeof e.config & { _authRetry?: boolean }) | undefined;
+    if (e.response?.status === 401 && config && !config._authRetry && !config.url?.includes('/api/auth/')) {
+      try {
+        const accessToken = await sharedRefresh();
+        if (accessToken) {
+          config._authRetry = true;
+          config.headers.Authorization = `Bearer ${accessToken}`;
+          return apiClient.request(config);
+        }
+      } catch (refreshError: any) {
+        const status = refreshError?.response?.status;
+        if (status && status >= 400 && status < 500)
+          await useAuthStore.getState().expireSession('REFRESH_REVOKED_OR_ACCOUNT_INVALID');
+      }
+    }
     const message = env.isProduction
       ? detail
       : e.response

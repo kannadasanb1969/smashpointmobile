@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
 import { adminApi } from '../../src/features/admin/api';
 import { useAuthStore } from '../../src/store/authStore';
+import { authApi } from '../../src/api/apiClient';
 import { colors } from '../../src/theme';
 export default function Admin() {
   const q = useQuery({ queryKey: ['admin-pending'], queryFn: adminApi.pending });
@@ -41,6 +42,7 @@ export default function Admin() {
         </Text>
         <Text
           onPress={async () => {
+            try { await authApi.logout(); } catch { /* local logout must still complete */ }
             await clearSession();
             router.replace('/(auth)/login');
           }}

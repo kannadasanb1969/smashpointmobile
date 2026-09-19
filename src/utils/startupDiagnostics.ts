@@ -2,14 +2,16 @@ export type StartupStage =
   | 'APP_BOOT'
   | 'AUTH_RESTORE_START'
   | 'AUTH_RESTORE_SUCCESS'
+  | 'AUTH_SESSION_STORED'
+  | 'AUTH_RESTORE_REFRESH_REQUIRED'
   | 'AUTH_RESTORE_FAIL'
   | 'PROFILE_FETCH_START'
   | 'PROFILE_FETCH_SUCCESS'
   | 'PROFILE_FETCH_FAIL'
   | 'ROUTER_READY'
   | 'APP_READY';
-export function startupDiagnostic(stage: StartupStage): void {
-  if (__DEV__) console.info(`[startup] ${stage}`);
+export function startupDiagnostic(stage: StartupStage, details?: Record<string, unknown>): void {
+  if (__DEV__) console.info(`[startup] ${stage}`, details ?? '');
 }
 export function withStartupTimeout<T>(operation: Promise<T>, timeoutMs = 5000): Promise<T> {
   return new Promise((resolve, reject) => {
