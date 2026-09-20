@@ -15,4 +15,5 @@ export const ops = {
       organizerUserId,
     }),
   publishFixture: (id: string) => apiClient.post(`/api/fixtures/${id}/publish`, {}),
+  promoteFixture: (id: string) => apiClient.post(`/api/fixtures/${id}/promote`, {}),
 };

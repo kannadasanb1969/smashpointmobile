@@ -138,6 +138,12 @@ export default function MatchScreen() {
   const a = match.participant1Score ?? match.participant1_score ?? match.scoreA ?? 0;
   const b = match.participant2Score ?? match.participant2_score ?? match.scoreB ?? 0;
   const status = String(match.status || 'SCHEDULED').toUpperCase();
+  const category = match.categoryName || match.category_name || match.eventType || match.event_type;
+  const pool = match.poolName || match.pool_name || match.groupName || match.group_name;
+  const round = match.roundName || match.round_name || match.roundNumber || match.round_number;
+  const metadata = [category, pool, round ? `Round ${round}` : null].filter(Boolean);
+  const isDoubles = String(match.participant1_type || match.participant1Type || '').toUpperCase() === 'TEAM' ||
+    String(match.participant2_type || match.participant2Type || '').toUpperCase() === 'TEAM';
   const actions =
     target == null
       ? {
@@ -184,18 +190,26 @@ export default function MatchScreen() {
           ‹ Live Match
         </Text>
         <Text style={s.eyebrow}>ORGANIZER MATCH</Text>
-        {(match.tournamentName || match.categoryName) && (
-          <Text style={s.context}>
-            {[match.tournamentName, match.categoryName].filter(Boolean).join(' · ')}
-          </Text>
-        )}
         <View style={s.header}>
           <Text style={s.matchCode}>
             Match {match.matchCode || match.match_code || match.code || match.id}
           </Text>
-          <Text style={[s.status, statusStyle(status)]}>{status}</Text>
+          {status === 'LIVE' && <Text style={s.liveBadge}>● LIVE</Text>}
+          <View style={s.menuButton}><Text style={s.menuDots}>⋮</Text></View>
         </View>
-        <View style={s.card}>
+        {!!metadata.length && (
+          <View style={s.metadata}>
+            {metadata.map((item, index) => (
+              <Text key={`${item}-${index}`} style={s.metadataText}>
+                {index > 0 ? '  |  ' : ''}{item}
+              </Text>
+            ))}
+          </View>
+        )}
+        <View style={s.scoreShell}>
+          {target != null && (
+            <Text style={s.playingTo}>PLAYING TO {target}  •  WIN BY 2</Text>
+          )}
           <Participant
             label="Participant 1"
             name={
@@ -216,11 +230,11 @@ export default function MatchScreen() {
             live={actions.canIncrement}
             onMinus={() => change('A', 'DECREMENT')}
             onPlus={() => change('A', 'INCREMENT')}
-            // `change()` already guards duplicate taps. Keep the control
-            // mounted and visually stable while the score request is pending.
             disabled={false}
+            leading={a > b}
+            isDoubles={isDoubles}
           />
-          <Text style={s.vs}>VS</Text>
+          <View style={s.vsRow}><View style={s.vsLine} /><Text style={s.vs}>VS</Text><View style={s.vsLine} /></View>
           <Participant
             label="Participant 2"
             name={
@@ -242,6 +256,8 @@ export default function MatchScreen() {
             onMinus={() => change('B', 'DECREMENT')}
             onPlus={() => change('B', 'INCREMENT')}
             disabled={false}
+            leading={b > a}
+            isDoubles={isDoubles}
           />
           {actions.canStart && (
             <>
@@ -271,11 +287,13 @@ export default function MatchScreen() {
             <Text style={s.rule}>Playing to {target} · Win by 2</Text>
           )}
           {actions.canComplete && (
-            <PrimaryButton
+            <Pressable
               disabled={complete.isPending}
-              title={complete.isPending ? 'Completing…' : 'Complete Match'}
               onPress={finish}
-            />
+              style={[s.completeButton, complete.isPending && s.disabledButton]}
+            >
+              <Text style={s.completeText}>{complete.isPending ? 'Completing…' : '✓  Complete Match'}</Text>
+            </Pressable>
           )}
           {(match.winnerParticipantName || match.winner_participant_name || match.winnerName) &&
             status === 'COMPLETED' && (
@@ -299,6 +317,8 @@ function Participant({
   onMinus,
   onPlus,
   disabled,
+  leading,
+  isDoubles,
 }: {
   label: string;
   name: unknown;
@@ -308,21 +328,33 @@ function Participant({
   onMinus: () => void;
   onPlus: () => void;
   disabled: boolean;
+  leading: boolean;
+  isDoubles: boolean;
 }) {
   return (
-    <View style={s.participant}>
-      <Text style={s.label}>{label}</Text>
+    <View style={[s.participant, leading && s.leadingParticipant]}>
+      <View style={s.participantTop}>
+        <Text style={s.label}>{label}</Text>
+        <View style={s.badges}>
+          {leading && <Text style={s.leadingBadge}>♛ LEADING</Text>}
+          <Text style={s.typeBadge}>{isDoubles ? 'TEAM' : 'PLAYER'}</Text>
+        </View>
+      </View>
       <View style={s.playerRow}>
         <View style={s.playerCopy}>
-          <Text style={s.name}>{displayValue(name)}</Text>
+          {displayNames(name).map((item, index) => <Text key={`${item}-${index}`} style={s.name}>{item}</Text>)}
           {code != null && <Text style={s.code}>{String(code)}</Text>}
         </View>
-        <Text style={s.score}>{score}</Text>
+        <Text style={[s.score, leading && s.leadingScore]}>{String(score).padStart(2, '0')}</Text>
       </View>
       {live && (
         <View style={s.scoreControls}>
-          <PrimaryButton disabled={disabled || score <= 0} title="- Point" onPress={onMinus} />
-          <PrimaryButton disabled={disabled} title="+ Point" onPress={onPlus} />
+          <Pressable disabled={disabled || score <= 0} style={[s.minusButton, (disabled || score <= 0) && s.disabledButton]} onPress={onMinus}>
+            <Text style={s.minusText}>−</Text>
+          </Pressable>
+          <Pressable disabled={disabled} style={[s.plusButton, disabled && s.disabledButton]} onPress={onPlus}>
+            <Text style={s.plusText}>+</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -334,6 +366,10 @@ function displayValue(value: any) {
   return (
     value.name || value.fullName || value.displayName || value.teamName || value.playerName || 'TBD'
   );
+}
+function displayNames(value: any): string[] {
+  const text = displayValue(value);
+  return text.includes(' / ') ? text.split(' / ').filter(Boolean) : [text];
 }
 function statusStyle(status: string) {
   if (status === 'LIVE') return { backgroundColor: '#D7F6E7', color: colors.sport };
@@ -352,7 +388,6 @@ const s = StyleSheet.create({
     letterSpacing: 1.3,
     marginTop: spacing.sm,
   },
-  context: { color: colors.muted, marginTop: spacing.xs },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -360,21 +395,35 @@ const s = StyleSheet.create({
     marginTop: spacing.md,
   },
   matchCode: { color: colors.white, fontSize: 21, fontWeight: '900', flex: 1 },
-  status: {
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  card: {
-    backgroundColor: colors.surface,
+  liveBadge: { color: '#FF6B63', backgroundColor: '#321D1E', borderColor: '#A94B4B', borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 6, fontSize: 10, fontWeight: '900' },
+  menuButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center', marginLeft: spacing.xs },
+  menuDots: { color: colors.primaryDark, fontSize: 24, lineHeight: 26, fontWeight: '900' },
+  metadata: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.sm },
+  metadataText: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  scoreShell: {
+    backgroundColor: '#062D24',
+    borderColor: '#17614B',
+    borderWidth: 1,
     borderRadius: radius.lg,
     padding: spacing.lg,
     marginTop: spacing.lg,
-    ...shadows.card,
   },
-  participant: { paddingVertical: spacing.sm },
+  playingTo: { color: colors.lime, fontSize: 12, fontWeight: '900', textAlign: 'center', marginBottom: spacing.sm },
+  leadingParticipant: { borderColor: colors.lime, borderWidth: 2, borderRadius: radius.md, paddingHorizontal: spacing.sm },
+  leadingScore: { color: colors.primary },
+  disabledButton: { opacity: 0.35 },
+  minusButton: { flex: 1, minHeight: 54, borderRadius: radius.md, borderWidth: 1, borderColor: '#C7D9CE', backgroundColor: '#EEF5F0', alignItems: 'center', justifyContent: 'center' },
+  plusButton: { flex: 1, minHeight: 54, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  minusText: { color: colors.primaryDark, fontSize: 30, fontWeight: '700' },
+  plusText: { color: colors.white, fontSize: 30, fontWeight: '800' },
+  completeButton: { minHeight: 52, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.lime, backgroundColor: '#0B3A2D', alignItems: 'center', justifyContent: 'center', marginTop: spacing.md },
+  completeText: { color: colors.lime, fontSize: 15, fontWeight: '900' },
+  card: { backgroundColor: colors.surface },
+  participant: { backgroundColor: colors.white, borderRadius: radius.lg, padding: spacing.md, marginVertical: spacing.xs, ...shadows.card },
+  participantTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  badges: { flexDirection: 'row', gap: spacing.xs, alignItems: 'center' },
+  leadingBadge: { color: colors.primaryDark, backgroundColor: '#DDF4C9', borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 5, fontSize: 9, fontWeight: '900' },
+  typeBadge: { color: colors.primaryDark, backgroundColor: '#EAF6EE', borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 5, fontSize: 9, fontWeight: '900' },
   label: {
     color: colors.muted,
     fontSize: 11,
@@ -389,16 +438,17 @@ const s = StyleSheet.create({
     marginTop: spacing.xs,
   },
   playerCopy: { flex: 1, paddingRight: spacing.md },
-  name: { color: colors.text, fontSize: 18, fontWeight: '900' },
-  code: { color: colors.muted, fontSize: 12, marginTop: 3 },
-  score: { color: colors.primary, fontSize: 28, fontWeight: '900' },
+  name: { color: '#15382C', fontSize: 18, lineHeight: 23, fontWeight: '900' },
+  code: { color: colors.muted, fontSize: 12, marginTop: 5 },
+  score: { color: '#15382C', fontSize: 76, lineHeight: 82, fontWeight: '900', textAlign: 'center' },
   scoreControls: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  vsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginVertical: spacing.sm },
+  vsLine: { flex: 1, height: 1, backgroundColor: '#2F6657' },
   vs: {
     color: colors.primary,
     fontSize: 12,
     fontWeight: '900',
     textAlign: 'center',
-    marginVertical: spacing.sm,
   },
   selectorLabel: { color: colors.text, fontSize: 14, fontWeight: '900', marginTop: spacing.lg },
   targets: { flexDirection: 'row', gap: spacing.sm, marginVertical: spacing.md },

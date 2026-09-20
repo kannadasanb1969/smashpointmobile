@@ -119,7 +119,9 @@ export default function Registrations() {
             guests={guests}
           />
         ))}
-        <SectionTitle title="Fixture - Knockout" />
+        <SectionTitle
+          title={`Fixture - ${String(tournament.data?.fixtureFormat || tournament.data?.format || 'KNOCKOUT').replace(/_/g, ' ')}`}
+        />
         <View style={s.tabs}>
           <Filter
             label="Bracket"
@@ -135,7 +137,18 @@ export default function Registrations() {
         {fixturesQuery.isLoading && <Text style={s.muted}>Loading fixtures…</Text>}
         {fixturesQuery.isError && <ErrorState onRetry={() => fixturesQuery.refetch()} />}
         {!fixturesQuery.isLoading && !fixturesQuery.isError && !fixtures.length && (
-          <Text style={s.muted}>No fixtures generated yet.</Text>
+          <View>
+            <Text style={s.muted}>No fixtures generated yet.</Text>
+            <PrimaryButton
+              title="Open Fixtures & Generate"
+              onPress={() =>
+                router.push({
+                  pathname: '/(organizer)/fixtures',
+                  params: { id: String(id), categoryId: String(selected) },
+                })
+              }
+            />
+          </View>
         )}
         {fixtureTab === 'BRACKET' ? (
           <ScrollView
@@ -318,7 +331,7 @@ function filterRegistrationRows(rows: any[], categoryId: string, eventType?: str
       (category != null
         ? String(category) === String(categoryId)
         : String(row.eventType || '').toUpperCase() === String(eventType || '').toUpperCase());
-    return categoryMatches && status === 'REGISTERED';
+    return categoryMatches && ['REGISTERED', 'CONFIRMED'].includes(status);
   });
 }
 function filterFixtureRows(rows: any[], categoryId: string) {
