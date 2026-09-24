@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
 import { PrimaryButton } from '../../src/components/common/PrimaryButton';
+import { BackButton } from '../../src/components/common/BackButton';
 import { ops } from '../../src/features/organizer/operations';
 import {
   groupFixtures,
@@ -79,6 +80,10 @@ export default function Fixtures() {
     ? ['POOLS', 'MATCHES', 'STANDINGS', 'BRACKET']
     : ['POOLS', 'MATCHES', 'STANDINGS'];
   useEffect(() => {
+    const categories = tournament.data?.categories || [];
+    if (!categoryId && categories.length === 1) setCategoryId(String(categories[0].id));
+  }, [categoryId, tournament.data?.categories]);
+  useEffect(() => {
     // A League fixture has no bracket to show; keep the tab selection valid if the format changes
     // (e.g. switching categories) instead of silently rendering an empty Bracket view.
     if (isLeague && knockoutTab === 'BRACKET') setKnockoutTab('MATCHES');
@@ -124,9 +129,7 @@ export default function Fixtures() {
         }
         contentContainerStyle={s.page}
       >
-        <Text onPress={() => router.back()} style={s.back}>
-          ‹ Back to tournament
-        </Text>
+        <BackButton variant="dark" style={s.back} />
         <Text style={s.eyebrow}>ORGANIZER FIXTURES</Text>
         <Text style={s.title}>
           {!activeFixture ? 'Fixtures' : isLeague ? 'League Fixtures' : 'Fixture - Knockout'}
@@ -394,7 +397,7 @@ export default function Fixtures() {
 }
 const s = StyleSheet.create({
   page: { paddingBottom: 50 },
-  back: { color: colors.lime, fontWeight: '900', marginTop: spacing.md },
+  back: { marginTop: spacing.md },
   eyebrow: {
     color: colors.lime,
     fontSize: 11,

@@ -15,6 +15,8 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
+import { BackButton } from '../../src/components/common/BackButton';
+import { TournamentIcon } from '../../src/components/common/TournamentIcon';
 import { useAuthStore } from '../../src/store/authStore';
 import { organizerApi, useOrganizerMutation } from '../../src/features/organizer/api';
 import { cleanCategories, type OrganizerCategory } from '../../src/features/organizer/helpers';
@@ -60,6 +62,14 @@ const valueFromDate = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 const dateValid = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 const timeValue = (value: unknown) => (typeof value === 'string' ? value.slice(0, 5) : '');
+const dateFromTimeValue = (value: string) => {
+  const match = value.match(/^(\d{2}):(\d{2})$/);
+  const date = new Date();
+  if (match) date.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return date;
+};
+const valueFromTime = (date: Date) =>
+  `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 const reportingTimeValue = (value: string) => {
   const raw = value.trim();
   if (!raw) return undefined;
@@ -101,6 +111,44 @@ function DateField({
           value={dateFromValue(value)}
           mode="date"
           display="default"
+          onChange={select}
+        />
+      )}
+    </View>
+  );
+}
+function TimeField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const select = (event: DateTimePickerEvent, date?: Date) => {
+    setOpen(false);
+    if (event.type !== 'dismissed' && date) onChange(valueFromTime(date));
+  };
+  return (
+    <View>
+      <Text style={s.label}>{label}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={() => setOpen(true)}
+        style={s.dateInput}
+      >
+        <Text style={value ? s.value : s.placeholder}>{value || 'Select time'}</Text>
+        <TournamentIcon name="clock" size={18} />
+      </Pressable>
+      {open && (
+        <DateTimePicker
+          value={dateFromTimeValue(value)}
+          mode="time"
+          display="default"
+          is24Hour
           onChange={select}
         />
       )}
@@ -260,7 +308,6 @@ export default function Create() {
       shuttle: values.shuttleType,
       scoringFormat: values.winningPoints || undefined,
     };
-    console.log('[TOURNAMENT DRAFT PAYLOAD]', input);
     mutation.mutate(
       { id, input, organizerId },
       {
@@ -293,9 +340,7 @@ export default function Create() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={s.content}
         >
-          <Pressable onPress={() => router.back()}>
-            <Text style={s.back}>‹ Back</Text>
-          </Pressable>
+          <BackButton variant="dark" fallbackRoute="/(organizer)/" style={s.back} />
           <Text style={s.eyebrow}>ORGANIZER WORKSPACE</Text>
           <Text style={s.title}>{id ? 'Edit Tournament' : 'Create Tournament'}</Text>
           <Section title="Tournament Basics">
@@ -338,11 +383,10 @@ export default function Create() {
               value={values.registrationCloseDate}
               onChange={(value) => set('registrationCloseDate', value)}
             />
-            <Field
+            <TimeField
               label="Reporting Time"
               value={values.reportingTime}
-              onChangeText={(value) => set('reportingTime', value)}
-              placeholder="Optional, e.g. 08:00"
+              onChange={(value) => set('reportingTime', value)}
             />
           </Section>
           <Section title="Venue">
@@ -533,7 +577,7 @@ export default function Create() {
 const s = StyleSheet.create({
   page: { flex: 1 },
   content: { paddingBottom: 50 },
-  back: { color: colors.lime, fontWeight: '900', marginTop: spacing.md },
+  back: { marginTop: spacing.md },
   eyebrow: {
     color: colors.lime,
     fontSize: 11,

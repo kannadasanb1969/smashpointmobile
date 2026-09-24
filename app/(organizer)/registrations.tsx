@@ -1,288 +1,232 @@
-import { RefreshControl, ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
+import { ImageBackground, RefreshControl, ScrollView, StyleSheet, Text, Pressable, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
-import { PrimaryButton } from '../../src/components/common/PrimaryButton';
+import { BackButton } from '../../src/components/common/BackButton';
 import { ops } from '../../src/features/organizer/operations';
-import { groupFixtures, fixtureLabel } from '../../src/features/organizer/fixtureHelpers';
+import { fixtureLabel } from '../../src/features/organizer/fixtureHelpers';
 import { useTournament, usePlayers, useGuests } from '../../src/features/player/api';
-import { colors, radius, shadows, spacing } from '../../src/theme';
+import { colors, radius, spacing } from '../../src/theme';
 import { normalizeFixtureResponse } from '../../src/features/player/tournamentResults';
+import { TournamentIcon, type TournamentIconName } from '../../src/components/common/TournamentIcon';
+import { getTournamentDisplayStatus, tournamentStatusLabel } from '../../src/features/organizer/status';
 
 export default function Registrations() {
   const { id, categoryId } = useLocalSearchParams<{ id: string; categoryId?: string }>();
-  const [selected, setSelected] = useState(categoryId || '');
-  const [fixtureTab, setFixtureTab] = useState<'BRACKET' | 'MATCHES'>('BRACKET');
   const tournament = useTournament(id);
   const playersQuery = usePlayers();
   const guestsQuery = useGuests();
+  const categories = tournament.data?.categories || [];
+  const [selected, setSelected] = useState(categoryId || '');
+  const selectedCategory =
+    categories.find((category: any) => String(category.id) === String(selected)) || categories[0];
+  const effectiveCategoryId = selectedCategory ? String(selectedCategory.id) : '';
   const registrationsQuery = useQuery({
     queryKey: ['organizer-registrations', id],
     queryFn: () => ops.registrations(id).then((response) => response.data),
     enabled: Boolean(id),
   });
   const fixturesQuery = useQuery({
-    queryKey: ['organizer-fixtures', id],
-    queryFn: () => ops.fixtures(id).then((response) => response.data),
+    queryKey: ['organizer-fixtures', id, effectiveCategoryId],
+    queryFn: () => ops.fixtures(id, effectiveCategoryId || undefined).then((response) => response.data),
     enabled: Boolean(id),
   });
   const players = Object.fromEntries(
-    (playersQuery.data || []).map((x: any) => [
-      String(x.id),
-      x.name || x.fullName || x.displayName || '',
-    ]),
+    (playersQuery.data || []).map((x: any) => [String(x.id), x.name || x.fullName || x.displayName || '']),
   );
   const guests = Object.fromEntries(
-    (guestsQuery.data || []).map((x: any) => [
-      String(x.id),
-      x.name || x.fullName || x.displayName || '',
-    ]),
+    (guestsQuery.data || []).map((x: any) => [String(x.id), x.name || x.fullName || x.displayName || '']),
   );
   const rawRegistrations = registrationRows(registrationsQuery.data);
   const normalizedRegistrations = normalizeRegistrationRows(rawRegistrations);
-  const selectedCategory = (tournament.data?.categories || []).find(
-    (category: any) => String(category.id) === String(selected),
-  );
   const registrations = filterRegistrationRows(
     normalizedRegistrations,
-    selected,
+    effectiveCategoryId,
     selectedCategory?.eventType,
   );
-  const fixtures = filterFixtureRows(fixtureRows(fixturesQuery.data), selected);
-  const groups = groupFixtures(fixtures as any);
-  if (__DEV__) {
-    const codeList = (rows: any[]) =>
-      rows.map((row) => row.registrationCode || row.registration_code || row.code || row.id);
-    console.log('[REG TRACE] raw', { codes: codeList(rawRegistrations), rows: rawRegistrations });
-    console.log('[REG TRACE] normalized', {
-      codes: codeList(normalizedRegistrations),
-      rows: normalizedRegistrations,
-    });
-    console.log('[REG TRACE] filtered', {
-      codes: codeList(registrations),
-      names: registrations.map((row) => registrationName(row, players, guests)),
-      rows: registrations,
-    });
-    console.log('[MOBILE FIXTURES] raw/filtered/rounds', {
-      rawCount: fixtureRows(fixturesQuery.data).length,
-      filteredCount: fixtures.length,
-      rounds: groups.map((group) => group.round),
-    });
-  }
+  const fixtures = fixtureRows(fixturesQuery.data);
+  const isDoubles = String(selectedCategory?.eventType || '').toUpperCase() === 'DOUBLES';
+  const teams = isDoubles ? registrations.filter((r) => hasPartner(r)) : [];
+  const unpaired = isDoubles ? registrations.filter((r) => !hasPartner(r)) : registrations;
+  const playerCount = isDoubles ? teams.length * 2 + unpaired.length : registrations.length;
+  const progress = tournament.data ? getTournamentDisplayStatus(tournament.data) : null;
+  const loading = registrationsQuery.isLoading || tournament.isLoading;
+  const refreshing = registrationsQuery.isFetching || fixturesQuery.isFetching || tournament.isFetching;
+  const refresh = () => {
+    void registrationsQuery.refetch();
+    void fixturesQuery.refetch();
+    void tournament.refetch();
+  };
+  const openFixtures = () =>
+    router.push({ pathname: '/(organizer)/fixtures', params: { id: String(id), categoryId: effectiveCategoryId } });
   return (
     <ScreenContainer dark>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            tintColor={colors.lime}
-            refreshing={registrationsQuery.isFetching || fixturesQuery.isFetching}
-            onRefresh={() => {
-              void registrationsQuery.refetch();
-              void fixturesQuery.refetch();
-            }}
-          />
-        }
+        style={s.scroll}
+        refreshControl={<RefreshControl tintColor={colors.lime} refreshing={refreshing} onRefresh={refresh} />}
         contentContainerStyle={s.content}
       >
-        <Text onPress={() => router.back()} style={s.back}>
-          ‹ Back to tournament
-        </Text>
-        <Text style={s.eyebrow}>ORGANIZER MATCH CENTRE</Text>
-        <Text style={s.title}>Registrations & Fixtures</Text>
-        {tournament.data?.name && <Text style={s.tournament}>{tournament.data.name}</Text>}
-        <View style={s.filters}>
-          <Filter label="All Categories" active={!selected} onPress={() => setSelected('')} />
-          {(tournament.data?.categories || []).map((category: any) => (
-            <Filter
-              key={category.id}
-              label={category.name || category.eventType || 'Category'}
-              active={String(category.id) === String(selected)}
-              onPress={() => setSelected(String(category.id))}
-            />
-          ))}
-        </View>
-        <SectionTitle
-          title={`Registrations${registrationsQuery.isLoading ? '' : ` (${registrations.length})`}`}
-        />
-        {registrationsQuery.isLoading && <Text style={s.muted}>Loading registrations…</Text>}
-        {registrationsQuery.isError && <ErrorState onRetry={() => registrationsQuery.refetch()} />}
-        {!registrationsQuery.isLoading && !registrationsQuery.isError && !registrations.length && (
-          <Text style={s.muted}>No registrations yet.</Text>
-        )}
-        {registrations.map((registration: any) => (
-          <RegistrationCard
-            key={registration.id}
-            registration={registration}
-            players={players}
-            guests={guests}
-          />
-        ))}
-        <SectionTitle
-          title={`Fixture - ${String(tournament.data?.fixtureFormat || tournament.data?.format || 'KNOCKOUT').replace(/_/g, ' ')}`}
-        />
-        <View style={s.tabs}>
-          <Filter
-            label="Bracket"
-            active={fixtureTab === 'BRACKET'}
-            onPress={() => setFixtureTab('BRACKET')}
-          />
-          <Filter
-            label="Matches"
-            active={fixtureTab === 'MATCHES'}
-            onPress={() => setFixtureTab('MATCHES')}
-          />
-        </View>
-        {fixturesQuery.isLoading && <Text style={s.muted}>Loading fixtures…</Text>}
-        {fixturesQuery.isError && <ErrorState onRetry={() => fixturesQuery.refetch()} />}
-        {!fixturesQuery.isLoading && !fixturesQuery.isError && !fixtures.length && (
-          <View>
-            <Text style={s.muted}>No fixtures generated yet.</Text>
-            <PrimaryButton
-              title="Open Fixtures & Generate"
-              onPress={() =>
-                router.push({
-                  pathname: '/(organizer)/fixtures',
-                  params: { id: String(id), categoryId: String(selected) },
-                })
-              }
-            />
+        <ImageBackground
+          source={require('../../assets/images/login-badminton-bg.png')}
+          style={s.hero}
+          imageStyle={s.heroImage}
+        >
+          <View style={s.heroOverlay} />
+          <View style={s.heroTopRow}>
+            <BackButton variant="dark" />
           </View>
-        )}
-        {fixtureTab === 'BRACKET' ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.bracket}
-          >
-            {groups.map((group) => (
-              <View key={group.round} style={s.roundColumn}>
-                <Text style={s.round}>🏆 {group.round}</Text>
-                {group.fixtures.map((fixture: any, index: number) => (
-                  <FixtureCard
-                    key={fixture.id || index}
-                    fixture={fixture}
-                    players={players}
-                    guests={guests}
-                  />
-                ))}
-              </View>
-            ))}
-          </ScrollView>
-        ) : (
-          groups.map((group) => (
-            <View key={group.round}>
-              <Text style={s.round}>🏆 {group.round}</Text>
-              {group.fixtures.map((fixture: any, index: number) => (
-                <FixtureCard
-                  key={fixture.id || index}
-                  fixture={fixture}
-                  players={players}
-                  guests={guests}
-                />
-              ))}
+          <View style={s.heroBody}>
+            <View style={s.eyebrowPill}>
+              <Text style={s.eyebrow}>ORGANIZER TOURNAMENT</Text>
             </View>
-          ))
-        )}
+            <Text style={s.title}>{tournament.data?.name || 'Tournament'}</Text>
+            <Text style={s.subtitle}>
+              {[selectedCategory?.eventType, tournament.data?.fixtureFormat || tournament.data?.format, progress?.label]
+                .filter(Boolean)
+                .join('  ·  ')}
+            </Text>
+          </View>
+          <View style={s.heroFade} />
+        </ImageBackground>
+
+        <View style={s.body}>
+          {categories.length > 1 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters}>
+              {categories.map((category: any) => (
+                <Pressable
+                  key={category.id}
+                  onPress={() => setSelected(String(category.id))}
+                  style={[s.filter, String(category.id) === effectiveCategoryId && s.filterActive]}
+                >
+                  <Text style={[s.filterText, String(category.id) === effectiveCategoryId && s.filterTextActive]}>
+                    {category.name || category.eventType || 'Category'}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+
+          {!loading && (
+            <>
+              <View style={s.stats}>
+                <Stat icon="people" value={playerCount} label="Players" />
+                <Stat icon="bracket" value={isDoubles ? teams.length : 0} label="Teams" />
+                <Stat icon="trophy" value={fixtures.length} label="Fixtures" />
+                <Stat icon="check" value={progress?.label || tournamentStatusLabel(tournament.data?.status)} label="Status" isText />
+              </View>
+
+              <View style={s.actionsRow}>
+                <Pressable style={s.actionButton} onPress={openFixtures}>
+                  <TournamentIcon name="bars" size={20} />
+                  <Text style={s.actionTitle}>View Fixtures</Text>
+                  <Text style={s.actionSubtitle}>Check upcoming matches</Text>
+                </Pressable>
+                <Pressable style={s.actionButton} onPress={openFixtures}>
+                  <TournamentIcon name="clock" size={20} />
+                  <Text style={s.actionTitle}>View Results</Text>
+                  <Text style={s.actionSubtitle}>See match results</Text>
+                </Pressable>
+              </View>
+
+              {isDoubles && (
+                <View style={s.section}>
+                  <View style={s.sectionHeadingRow}>
+                    <TournamentIcon name="people" size={18} />
+                    <Text style={s.heading}>Teams ({teams.length})</Text>
+                    {unpaired.length > 0 && <Text style={s.unpairedHint}>{unpaired.length} unpaired</Text>}
+                  </View>
+                  {teams.length ? (
+                    teams.map((registration: any) => (
+                      <View key={registration.id} style={s.card}>
+                        <Text style={s.cardText}>{registrationName(registration, players, guests)}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={s.emptyCard}>
+                      <View style={s.emptyIcon}>
+                        <TournamentIcon name="people" size={20} />
+                      </View>
+                      <View style={s.emptyCopy}>
+                        <Text style={s.emptyTitle}>No teams formed yet</Text>
+                        <Text style={s.emptyText}>Players will be grouped into teams during the draw.</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              <View style={s.section}>
+                <View style={s.sectionHeadingRow}>
+                  <TournamentIcon name="single" size={18} />
+                  <Text style={s.heading}>{isDoubles ? `Unpaired Players (${unpaired.length})` : `Players (${unpaired.length})`}</Text>
+                </View>
+                {unpaired.length ? (
+                  unpaired.map((registration: any) => (
+                    <View key={registration.id} style={s.playerRow}>
+                      <View style={s.playerAvatar}>
+                        <TournamentIcon name="single" size={16} />
+                      </View>
+                      <Text style={s.playerName}>{registrationName(registration, players, guests)}</Text>
+                      <Text style={s.playerChevron}>›</Text>
+                    </View>
+                  ))
+                ) : (
+                  <View style={s.card}>
+                    <Text style={s.cardText}>
+                      {registrationsQuery.isLoading ? 'Loading registrations…' : 'No registrations yet.'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
+              <Pressable style={s.banner} onPress={openFixtures}>
+                <View style={[s.bannerIcon, fixtures.length ? s.bannerIconReady : s.bannerIconPending]}>
+                  <TournamentIcon name={fixtures.length ? 'check' : 'document'} size={20} />
+                </View>
+                <View style={s.bannerCopy}>
+                  <Text style={s.bannerTitle}>{fixtures.length ? 'Fixtures Generated' : 'Fixtures not generated yet'}</Text>
+                  <Text style={s.bannerText}>
+                    {fixtures.length
+                      ? `${fixtures.length} fixture${fixtures.length === 1 ? '' : 's'} are ready to play.`
+                      : 'Open Fixtures to generate the draw for this category.'}
+                  </Text>
+                </View>
+                <Text style={s.playerChevron}>›</Text>
+              </Pressable>
+            </>
+          )}
+          {loading && <Text style={s.muted}>Loading registrations…</Text>}
+          {registrationsQuery.isError && (
+            <Text onPress={() => registrationsQuery.refetch()} style={s.error}>
+              Unable to load registrations. Tap to retry.
+            </Text>
+          )}
+        </View>
+
+        <View style={s.footer}>
+          <Text style={s.footerBrand}>
+            Smash<Text style={s.footerLime}>Point</Text>
+          </Text>
+          <Text style={s.footerTagline}>More Than a Game</Text>
+        </View>
       </ScrollView>
     </ScreenContainer>
   );
 }
 
-function RegistrationCard({
-  registration,
-  players,
-  guests,
-}: {
-  registration: any;
-  players: Record<string, string>;
-  guests: Record<string, string>;
-}) {
-  const name = registrationName(registration, players, guests);
+function Stat({ icon, value, label, isText }: { icon: TournamentIconName; value: number | string; label: string; isText?: boolean }) {
   return (
-    <View style={s.card}>
-      <Text style={s.player}>{name}</Text>
-      <Text style={s.meta}>
-        {registration.eventType || registration.category?.eventType || 'Registration'} ·{' '}
-        {registration.registrationCode || registration.code || registration.id} ·{' '}
-        {registration.status || '—'}
-      </Text>
+    <View style={s.stat}>
+      <TournamentIcon name={icon} size={18} />
+      <Text style={[s.statValue, isText && s.statValueText]}>{value}</Text>
+      <Text style={s.statLabel}>{label}</Text>
     </View>
   );
 }
-function FixtureCard({
-  fixture,
-  players,
-  guests,
-}: {
-  fixture: any;
-  players: Record<string, string>;
-  guests: Record<string, string>;
-}) {
-  const first = participantName(
-    fixture.player1 ||
-      fixture.participant1 ||
-      fixture.team1 ||
-      fixture.participant1Name ||
-      fixture.participant1_name,
-    players,
-    guests,
-  );
-  const second = participantName(
-    fixture.player2 ||
-      fixture.participant2 ||
-      fixture.team2 ||
-      fixture.participant2Name ||
-      fixture.participant2_name,
-    players,
-    guests,
-  );
-  const status = fixture.status || fixture.matchStatus || '—';
-  const a = fixture.participant1Score ?? fixture.participant1_score ?? fixture.scoreA ?? 0;
-  const b = fixture.participant2Score ?? fixture.participant2_score ?? fixture.scoreB ?? 0;
-  return (
-    <View style={s.fixture}>
-      <View style={s.fixtureTop}>
-        <Text style={s.matchCode}>
-          Match {fixture.matchNumber ?? fixture.matchOrder ?? fixture.matchCode ?? fixture.id}
-        </Text>
-        <Text style={[s.status, statusStyle(status)]}>{status}</Text>
-      </View>
-      <Text style={s.participant}>
-        {first}
-        <Text style={s.score}> {a}</Text>
-      </Text>
-      <Text style={s.participant}>
-        {second}
-        <Text style={s.score}> {b}</Text>
-      </Text>
-      <Text style={s.rule}>
-        Playing to {fixture.winningPoints ?? fixture.winning_points ?? '—'} · Win by 2
-      </Text>
-      {fixture.id && (
-        <PrimaryButton
-          title={
-            status === 'COMPLETED'
-              ? 'View completed match'
-              : status === 'LIVE'
-                ? 'Score match'
-                : 'Start / score match'
-          }
-          onPress={() =>
-            router.push({
-              pathname: '/(organizer)/matches/[id]',
-              params: {
-                id: String(fixture.id),
-                tournamentId: String(fixture.tournamentId || ''),
-                categoryId: String(fixture.categoryId || ''),
-              },
-            })
-          }
-        />
-      )}
-    </View>
-  );
+function hasPartner(registration: any) {
+  return registration.partnerId != null;
 }
 function registrationRows(value: any): any[] {
   const rows = Array.isArray(value)
@@ -333,15 +277,6 @@ function filterRegistrationRows(rows: any[], categoryId: string, eventType?: str
         : String(row.eventType || '').toUpperCase() === String(eventType || '').toUpperCase());
     return categoryMatches && ['REGISTERED', 'CONFIRMED'].includes(status);
   });
-}
-function filterFixtureRows(rows: any[], categoryId: string) {
-  return categoryId
-    ? rows.filter(
-        (row) =>
-          String(row.categoryId ?? row.category_id ?? row.category?.id ?? '') ===
-          String(categoryId),
-      )
-    : rows;
 }
 function registrationName(
   registration: any,
@@ -428,111 +363,131 @@ function participantName(
   const id = value.playerId ?? value.player_id ?? value.profileId ?? value.profile_id ?? value.id;
   return id != null ? players[String(id)] || guests[String(id)] || String(id) : fixtureLabel(value);
 }
-function Filter({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={[s.filter, active && s.filterActive]}>
-      <Text style={[s.filterText, active && s.filterTextActive]}>{label}</Text>
-    </Pressable>
-  );
-}
-function SectionTitle({ title }: { title: string }) {
-  return <Text style={s.heading}>{title}</Text>;
-}
-function ErrorState({ onRetry }: { onRetry: () => void }) {
-  return (
-    <View>
-      <Text style={s.error}>Unable to load data.</Text>
-      <Text onPress={onRetry} style={s.retry}>
-        Retry
-      </Text>
-    </View>
-  );
-}
-function statusStyle(status: string) {
-  switch (String(status).toUpperCase()) {
-    case 'LIVE':
-      return { backgroundColor: '#D7F6E7', color: colors.sport };
-    case 'COMPLETED':
-      return { backgroundColor: '#E3EEF8', color: colors.info };
-    default:
-      return { backgroundColor: '#FFF0D8', color: '#A86A0A' };
-  }
-}
 const s = StyleSheet.create({
+  scroll: { backgroundColor: '#031A16' },
   content: { paddingBottom: 44 },
-  back: { color: '#B8D5C6', fontWeight: '800', marginTop: spacing.md },
-  eyebrow: {
-    color: colors.lime,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.3,
-    marginTop: spacing.xl,
-  },
-  title: { color: colors.white, fontSize: 28, fontWeight: '900', marginTop: spacing.sm },
-  tournament: { color: '#C6DDD1', marginTop: spacing.sm },
-  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xl },
-  tabs: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
-  bracket: { gap: spacing.md, paddingBottom: spacing.md },
-  roundColumn: { width: 250 },
-  filter: {
-    backgroundColor: '#164E3B',
+  hero: { minHeight: 190, paddingTop: 8 },
+  heroImage: { resizeMode: 'cover' },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2, 27, 21, 0.6)' },
+  heroFade: { position: 'absolute', left: 0, right: 0, bottom: -1, height: 26, backgroundColor: '#031A16' },
+  heroTopRow: { paddingHorizontal: 20, paddingTop: 6 },
+  heroBody: { paddingHorizontal: 20, marginTop: 12 },
+  eyebrowPill: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.lime,
     borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  filterActive: { backgroundColor: colors.lime },
-  filterText: { color: '#C6DDD1', fontSize: 12, fontWeight: '800' },
-  filterTextActive: { color: colors.primaryDark },
-  heading: {
-    color: colors.white,
-    fontSize: 21,
-    fontWeight: '900',
-    marginTop: spacing.section,
-    marginBottom: spacing.md,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    ...shadows.card,
-  },
-  player: { color: colors.text, fontSize: 17, fontWeight: '900' },
-  meta: { color: colors.muted, fontSize: 13, marginTop: spacing.sm },
-  muted: { color: '#B8D5C6', marginBottom: spacing.md },
-  error: { color: '#FFB5B5' },
-  retry: { color: colors.lime, fontWeight: '800', marginTop: spacing.sm },
-  round: { color: colors.lime, fontSize: 16, fontWeight: '900', marginVertical: spacing.sm },
-  fixture: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    ...shadows.card,
-  },
-  fixtureTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  matchCode: { color: colors.primaryDark, fontWeight: '900' },
-  status: {
-    borderRadius: radius.pill,
-    paddingHorizontal: 9,
+    paddingHorizontal: 12,
     paddingVertical: 5,
-    fontSize: 10,
-    fontWeight: '900',
+    marginBottom: 10,
   },
-  participant: { color: colors.text, fontSize: 16, fontWeight: '800', paddingVertical: spacing.sm },
-  score: { color: colors.primary, fontSize: 20, fontWeight: '900' },
-  rule: { color: colors.muted, fontSize: 12, marginVertical: spacing.md },
+  eyebrow: { color: colors.lime, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
+  title: { color: colors.white, fontSize: 24, fontWeight: '900', lineHeight: 29 },
+  subtitle: { color: '#C6DDD1', fontSize: 12, fontWeight: '700', marginTop: 8, letterSpacing: 0.3 },
+  body: { paddingHorizontal: 20 },
+  filters: { gap: 8, paddingVertical: 16 },
+  filter: {
+    backgroundColor: '#083127',
+    borderColor: '#17614B',
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  filterActive: { backgroundColor: colors.lime, borderColor: colors.lime },
+  filterText: { color: '#C6DDD1', fontSize: 12, fontWeight: '800' },
+  filterTextActive: { color: '#0B3324' },
+  stats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    backgroundColor: 'rgba(6, 45, 36, 0.9)',
+    borderColor: '#17614B',
+    borderWidth: 1,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    marginTop: 16,
+  },
+  stat: { width: '25%', alignItems: 'center', paddingVertical: 8, gap: 6 },
+  statValue: { color: colors.white, fontSize: 20, fontWeight: '900' },
+  statValueText: { fontSize: 13 },
+  statLabel: { color: '#8FA59B', fontSize: 10, fontWeight: '700' },
+  actionsRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  actionButton: {
+    flex: 1,
+    backgroundColor: 'rgba(6, 45, 36, 0.9)',
+    borderColor: '#17614B',
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: 4,
+  },
+  actionTitle: { color: colors.white, fontSize: 14, fontWeight: '900', marginTop: 4 },
+  actionSubtitle: { color: '#8FA59B', fontSize: 11 },
+  section: { marginTop: 26 },
+  sectionHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  heading: { color: colors.white, fontSize: 18, fontWeight: '900', flex: 1 },
+  unpairedHint: { color: colors.lime, fontSize: 12, fontWeight: '800' },
+  card: { backgroundColor: '#EFF6F1', borderRadius: radius.lg, padding: spacing.lg },
+  cardText: { color: '#12211B', fontSize: 14, fontWeight: '700' },
+  emptyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: '#EFF6F1',
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  emptyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(15, 122, 79, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  emptyCopy: { flex: 1 },
+  emptyTitle: { color: '#12211B', fontSize: 14, fontWeight: '900' },
+  emptyText: { color: '#5C776C', fontSize: 12, marginTop: 2 },
+  playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#EFF6F1',
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
+    marginBottom: 8,
+  },
+  playerAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(15, 122, 79, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playerName: { flex: 1, color: '#12211B', fontSize: 14, fontWeight: '800' },
+  playerChevron: { color: '#5C776C', fontSize: 18, fontWeight: '900' },
+  banner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: '#EFF6F1',
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginTop: 26,
+  },
+  bannerIcon: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  bannerIconReady: { backgroundColor: colors.success },
+  bannerIconPending: { backgroundColor: 'rgba(15, 122, 79, 0.14)' },
+  bannerCopy: { flex: 1 },
+  bannerTitle: { color: colors.success, fontSize: 14, fontWeight: '900' },
+  bannerText: { color: '#5C776C', fontSize: 12, marginTop: 2 },
+  muted: { color: '#B8D5C6', marginTop: spacing.lg },
+  error: { color: '#FFB5B5', marginTop: spacing.lg },
+  footer: { alignItems: 'center', paddingTop: 40, paddingBottom: 20 },
+  footerBrand: { color: colors.white, fontSize: 20, fontWeight: '900' },
+  footerLime: { color: colors.lime },
+  footerTagline: { color: '#8FA59B', fontSize: 12, marginTop: 4 },
 });

@@ -1,5 +1,6 @@
 import { Text, ScrollView, RefreshControl, StyleSheet } from 'react-native';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
+import { BackButton } from '../../src/components/common/BackButton';
 import { useResults } from '../../src/features/player/achievements';
 import { colors } from '../../src/theme';
 export default function Results() {
@@ -9,6 +10,7 @@ export default function Results() {
       <ScrollView
         refreshControl={<RefreshControl refreshing={q.isFetching} onRefresh={() => q.refetch()} />}
       >
+        <BackButton />
         <Text style={s.title}>Results</Text>
         {q.isLoading && <Text>Loading results…</Text>}
         {q.isError && <Text style={s.error}>Unable to load results. Retry by pulling down.</Text>}

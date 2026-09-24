@@ -13,6 +13,7 @@ import {
 } from '../../../src/features/player/friendly';
 import { ScreenContainer } from '../../../src/components/common/ScreenContainer';
 import { PrimaryButton } from '../../../src/components/common/PrimaryButton';
+import { BackButton } from '../../../src/components/common/BackButton';
 import { colors } from '../../../src/theme';
 export default function Pairing() {
   const { id } = useLocalSearchParams<{ id: string }>(),
@@ -55,6 +56,7 @@ export default function Pairing() {
   if (!owner)
     return (
       <ScreenContainer>
+        <BackButton />
         <Text style={s.title}>Pairing</Text>
         <Text>Pairing management is restricted to the creator.</Text>
       </ScreenContainer>
@@ -72,6 +74,7 @@ export default function Pairing() {
           />
         }
       >
+        <BackButton />
         <Text style={s.title}>{d.data?.title || 'Pairing'}</Text>
         <Text style={s.meta}>
           DOUBLES · {p.data?.length || 0} players · {(t.data || []).length} teams

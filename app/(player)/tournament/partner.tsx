@@ -2,6 +2,7 @@ import { Text, TextInput, Alert, ScrollView, FlatList, Pressable, StyleSheet } f
 import { useLocalSearchParams, router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScreenContainer } from '../../../src/components/common/ScreenContainer';
+import { BackButton } from '../../../src/components/common/BackButton';
 import { usePlayers } from '../../../src/features/player/api';
 import { useAuthStore } from '../../../src/store/authStore';
 import { registrationApi, type Partner as PartnerSelection } from '../../../src/features/player/registration';
@@ -10,7 +11,13 @@ import { validateGuestDob, guestDobMessage } from '../../../src/features/player/
 import { colors } from '../../../src/theme';
 
 export default function Partner() {
-  const { id, categoryId } = useLocalSearchParams<{ id: string; categoryId: string }>();
+  const { id, categoryId, tournamentName, categoryName, eventType } = useLocalSearchParams<{
+    id: string;
+    categoryId: string;
+    tournamentName?: string;
+    categoryName?: string;
+    eventType?: string;
+  }>();
   const user = useAuthStore((state) => state.user);
   const players = usePlayers();
   const me = resolvePlayerProfile(players.data || [], user)?.id || '';
@@ -93,7 +100,16 @@ export default function Partner() {
         );
       router.push({
         pathname: '/(player)/tournament/confirm',
-        params: { id, categoryId, partnerId: partner.id, partnerType: partner.type, partnerName },
+        params: {
+          id,
+          categoryId,
+          partnerId: partner.id,
+          partnerType: partner.type,
+          partnerName,
+          tournamentName: tournamentName || '',
+          categoryName: categoryName || '',
+          eventType: eventType || '',
+        },
       });
     } catch (error) {
       Alert.alert(
@@ -106,9 +122,7 @@ export default function Partner() {
   };
   return (
     <ScreenContainer>
-      <Text style={s.back} onPress={() => router.back()}>
-        ‹ Back
-      </Text>
+      <BackButton />
       <Text style={s.title}>Choose Your Partner</Text>
       <Text style={s.tabs}>
         <Text
@@ -206,7 +220,6 @@ export default function Partner() {
   );
 }
 const s = StyleSheet.create({
-  back: { color: colors.primary, fontWeight: '700', marginTop: 24 },
   title: { fontSize: 28, fontWeight: '800', color: colors.text, marginVertical: 18 },
   tabs: { color: colors.muted, marginBottom: 10 },
   active: { color: colors.primary, fontWeight: '800' },

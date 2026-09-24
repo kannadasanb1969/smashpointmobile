@@ -1,4 +1,5 @@
-import { SafeAreaView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PropsWithChildren } from 'react';
 import { colors, spacing } from '../../theme';
 export function ScreenContainer({ children, dark = false }: PropsWithChildren<{ dark?: boolean }>) {

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
+import { BackButton } from '../../src/components/common/BackButton';
 import { colors, radius, spacing } from '../../src/theme';
 import { type Workspace } from '../../src/store/authStore';
 import { normalizeAuthMobileDisplay } from '../../src/api/apiClient';
@@ -44,6 +45,7 @@ export default function ChooseWorkspace() {
   return (
     <ScreenContainer dark>
       <View style={s.page}>
+        <BackButton variant="dark" fallbackRoute="/(auth)/login" style={s.back} />
         <Text style={s.brand}>
           Smash<Text style={s.lime}>Point</Text>
         </Text>
@@ -74,6 +76,7 @@ export default function ChooseWorkspace() {
 
 const s = StyleSheet.create({
   page: { flex: 1, paddingTop: spacing.xl },
+  back: { marginBottom: spacing.md },
   brand: { color: colors.white, fontSize: 25, fontWeight: '900' },
   lime: { color: colors.lime },
   eyebrow: {

@@ -1,9 +1,10 @@
 import { Alert, ScrollView, StyleSheet, Text, TextInput } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
 import { PrimaryButton } from '../../src/components/common/PrimaryButton';
+import { BackButton } from '../../src/components/common/BackButton';
 import { adminApi, useAdminDecision } from '../../src/features/admin/api';
 import { useAuthStore } from '../../src/store/authStore';
 import {
@@ -57,18 +58,21 @@ export default function Review() {
   if (!id)
     return (
       <ScreenContainer>
+        <BackButton fallbackRoute="/(admin)/" />
         <Text style={s.title}>Tournament not found</Text>
       </ScreenContainer>
     );
   if (query.isLoading)
     return (
       <ScreenContainer>
+        <BackButton fallbackRoute="/(admin)/" />
         <Text style={s.title}>Loading review…</Text>
       </ScreenContainer>
     );
   if (query.isError)
     return (
       <ScreenContainer>
+        <BackButton fallbackRoute="/(admin)/" />
         <Text style={s.error}>Unable to load review.</Text>
         <PrimaryButton title="Retry" onPress={() => query.refetch()} />
       </ScreenContainer>
@@ -77,15 +81,14 @@ export default function Review() {
   if (!tournament)
     return (
       <ScreenContainer>
+        <BackButton fallbackRoute="/(admin)/" />
         <Text style={s.title}>Tournament not found</Text>
       </ScreenContainer>
     );
   return (
     <ScreenContainer>
       <ScrollView>
-        <Text onPress={() => router.back()} style={s.back}>
-          ‹ Back
-        </Text>
+        <BackButton fallbackRoute="/(admin)/" style={s.back} />
         <Text style={s.title}>Review Tournament</Text>
         <Text style={s.name}>{tournament.name || 'Unnamed tournament'}</Text>
         <Text style={s.status}>{tournament.status || 'Status unavailable'}</Text>
@@ -139,7 +142,7 @@ export default function Review() {
   );
 }
 const s = StyleSheet.create({
-  back: { color: colors.primary, fontWeight: '700', marginTop: 25 },
+  back: { marginTop: 25 },
   title: { fontSize: 30, fontWeight: '800', color: colors.text, marginVertical: 18 },
   name: { fontSize: 21, fontWeight: '800', color: colors.text },
   status: { color: colors.primary, fontWeight: '800', marginTop: 8 },

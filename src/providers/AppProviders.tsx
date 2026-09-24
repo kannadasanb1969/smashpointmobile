@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useEffect, useRef } from 'react';
 import type { PropsWithChildren } from 'react';
 import { useAuthStore } from '../store/authStore';
@@ -20,5 +21,9 @@ export function AppProviders({ children }: PropsWithChildren) {
       cancelled = true;
     };
   }, [isAuthenticated]);
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <SafeAreaProvider>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </SafeAreaProvider>
+  );
 }

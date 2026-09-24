@@ -1,6 +1,7 @@
 import { FlatList, Text, StyleSheet, View, Alert } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
+import { BackButton } from '../../src/components/common/BackButton';
 import { useAuthStore } from '../../src/store/authStore';
 import {
   useRegistrations,
@@ -77,6 +78,7 @@ export default function Registrations() {
   const q = useRegistrations(id);
   return (
     <ScreenContainer>
+      <BackButton fallbackRoute="/(player)/" />
       <Text style={s.title}>My registrations</Text>
       <QueryState
         loading={q.isLoading}

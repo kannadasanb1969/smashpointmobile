@@ -1,5 +1,6 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { AppProviders } from '../src/providers/AppProviders';
 import { useAuthStore } from '../src/store/authStore';
 import { LoadingScreen } from '../src/components/feedback/LoadingScreen';
@@ -10,6 +11,9 @@ export default function Layout() {
   const auth = useAuthStore((s) => s.isAuthenticated);
   const role = useAuthStore((s) => s.user?.role);
   const workspace = useAuthStore((s) => s.activeWorkspace);
+  useEffect(() => {
+    void Ionicons.loadFont();
+  }, []);
   const segments = useSegments();
   const router = useRouter();
   useEffect(() => {

@@ -1,8 +1,9 @@
-import { Alert, ImageBackground, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, ImageBackground, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState } from 'react';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
 import { PrimaryButton } from '../../src/components/common/PrimaryButton';
+import { BackButton } from '../../src/components/common/BackButton';
 import { authApi, normalizeAuthMobile, normalizeAuthMobileDisplay } from '../../src/api/apiClient';
 import { useAuthStore } from '../../src/store/authStore';
 import { colors, radius, spacing } from '../../src/theme';
@@ -62,15 +63,7 @@ export default function VerifyOtp() {
           </View>
           <View style={s.dot} />
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={() => router.back()}
-          style={s.back}
-        >
-          <Text style={s.backIcon}>‹</Text>
-          <Text style={s.backText}>Edit mobile number</Text>
-        </Pressable>
+        <BackButton fallbackRoute="/(auth)/login" style={s.back} />
         <Text style={s.brand}>
           Smash<Text style={s.brandAccent}>Point</Text>
         </Text>
@@ -180,14 +173,7 @@ const s = StyleSheet.create({
     left: 32,
     top: 250,
   },
-  back: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
-  },
-  backIcon: { color: colors.primary, fontSize: 34, lineHeight: 34, marginRight: 6 },
-  backText: { color: colors.primary, fontWeight: '800', fontSize: 14 },
+  back: { marginTop: spacing.sm, marginBottom: spacing.lg },
   brand: { color: colors.text, fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
   brandAccent: { color: colors.primary },
   tagline: {

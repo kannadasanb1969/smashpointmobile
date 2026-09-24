@@ -7,17 +7,31 @@
     "scheme": "smashpoint",
     "userInterfaceStyle": "light",
     "icon": "./assets/smashpoint-icon.png",
-    "splash": {
-      "image": "./assets/smashpoint-splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#123B2A"
-    },
+
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-asset",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "enableSceneSupport": true
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/smashpoint-splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#123B2A"
+        }
+      ]
     ],
+
     "android": {
       "package": "com.smashpoint.mobile",
       "versionCode": 1,
@@ -26,10 +40,15 @@
         "backgroundColor": "#123B2A"
       }
     },
+
     "ios": {
       "bundleIdentifier": "com.smashpoint.mobile",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
+
     "extra": {
       "router": {
         "origin": false
@@ -38,6 +57,7 @@
         "projectId": "1b661914-88fe-4e0f-bf2b-e19be13c49f4"
       }
     },
+
     "owner": "smashpoint"
   }
 }

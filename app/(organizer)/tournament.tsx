@@ -1,11 +1,13 @@
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { ImageBackground, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
-import { PrimaryButton } from '../../src/components/common/PrimaryButton';
+import { BackButton } from '../../src/components/common/BackButton';
 import { organizerApi } from '../../src/features/organizer/api';
 import { ops } from '../../src/features/organizer/operations';
-import { colors, radius, shadows, spacing } from '../../src/theme';
+import { colors, radius, spacing } from '../../src/theme';
+import { TournamentIcon, type TournamentIconName } from '../../src/components/common/TournamentIcon';
 import {
   getTournamentDisplayStatus,
   tournamentStatusLabel,
@@ -32,36 +34,46 @@ export default function Tournament() {
   if (!id)
     return (
       <ScreenContainer dark>
+        <BackButton variant="dark" fallbackRoute="/(organizer)/" />
         <Text style={s.errorTitle}>Tournament not found</Text>
       </ScreenContainer>
     );
   if (query.isLoading)
     return (
       <ScreenContainer dark>
+        <BackButton variant="dark" fallbackRoute="/(organizer)/" />
         <Text style={s.loading}>Loading tournament details…</Text>
       </ScreenContainer>
     );
   if (query.isError)
     return (
       <ScreenContainer dark>
+        <BackButton variant="dark" fallbackRoute="/(organizer)/" />
         <Text style={s.errorTitle}>Unable to load tournament details.</Text>
-        <PrimaryButton title="Retry" onPress={() => query.refetch()} />
+        <Pressable style={s.retryButton} onPress={() => query.refetch()}>
+          <Text style={s.retryButtonText}>Retry</Text>
+        </Pressable>
       </ScreenContainer>
     );
   const tournament = query.data;
   if (!tournament)
     return (
       <ScreenContainer dark>
+        <BackButton variant="dark" fallbackRoute="/(organizer)/" />
         <Text style={s.errorTitle}>Tournament not found</Text>
       </ScreenContainer>
     );
   const progress = getTournamentDisplayStatus(tournament);
   const categories = Array.isArray(tournament.categories) ? tournament.categories : [];
   const registrationRows = Array.isArray(registrations.data) ? registrations.data : [];
+  const published = String(tournament.status).toUpperCase() === 'PUBLISHED';
+  const progressIcon: TournamentIconName =
+    progress?.type === 'completed' ? 'check' : progress?.type === 'live' ? 'play' : progress?.type === 'closed' ? 'lock' : 'calendar';
   return (
     <ScreenContainer dark>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        style={s.scroll}
         refreshControl={
           <RefreshControl
             tintColor={colors.lime}
@@ -71,81 +83,127 @@ export default function Tournament() {
         }
         contentContainerStyle={s.content}
       >
-        <Text onPress={() => router.back()} style={s.back}>
-          ‹ Back to tournaments
-        </Text>
-        <Text style={s.eyebrow}>ORGANIZER TOURNAMENT</Text>
-        <Text style={s.title}>{tournament.name}</Text>
-        {tournament.code && <Text style={s.code}>Tournament Code: {tournament.code}</Text>}
-        <View style={s.badges}>
-          <Text style={[s.badge, publicationStyle(tournament.status)]}>
-            {tournamentStatusLabel(tournament.status)}
-          </Text>
-          {progress && (
-            <Text style={[s.badge, progressStyle(progress.type)]}>{progress.label}</Text>
-          )}
-        </View>
-
-        <SectionTitle title="Tournament details" />
-        <View style={s.infoCard}>
-          <Info
-            label="Date"
-            value={formatDate(tournament.startDate || tournament.tournamentDate)}
-          />
-          <Info label="Reporting time" value={tournament.reportingTime} />
-          <Info label="Venue" value={tournament.venue || tournament.venueName} />
-          <Info label="Address" value={tournament.location || tournament.venueAddress} />
-          <Info label="Format" value={tournament.format} />
-          <Info
-            label="Registration closes"
-            value={formatDate(tournament.registrationCloseDate || tournament.registrationEndDate)}
-          />
-          <Info label="Registration close time" value={tournament.registrationCloseTime} />
-        </View>
-        {(tournament.description || tournament.description === '') && (
-          <>
-            <SectionTitle title="Description" />
-            <View style={s.card}>
-              <Text style={s.body}>{tournament.description || 'No description provided.'}</Text>
-            </View>
-          </>
-        )}
-
-        <SectionTitle title="Categories" />
-        {categories.map((category: any) => (
-          <CategoryCard
-            key={category.id}
-            category={category}
-            tournamentId={String(id)}
-            registrations={registrationRows}
-          />
-        ))}
-        {!categories.length && (
-          <View style={s.card}>
-            <Text style={s.muted}>No categories available.</Text>
+        <ImageBackground
+          source={require('../../assets/images/login-badminton-bg.png')}
+          style={s.hero}
+          imageStyle={s.heroImage}
+        >
+          <View style={s.heroOverlay} />
+          <View style={s.heroTopRow}>
+            <BackButton variant="dark" />
           </View>
-        )}
-        <View style={s.card}>
-          <Info
-            label="Prize"
-            value={tournament.prize || tournament.prizeAmount || tournament.prizePool}
-          />
-          <Info label="Shuttle type" value={tournament.shuttleType || tournament.shuttle} />
-          <Info
-            label="Scoring format"
-            value={
-              tournament.winningPoints ?? tournament.winning_points ?? tournament.scoringFormat
-            }
-          />
-          <PrimaryButton
-            title="View Fixtures"
-            onPress={() =>
-              router.push({ pathname: '/(organizer)/fixtures', params: { id: String(id) } })
-            }
-          />
+          <View style={s.heroBody}>
+            <View style={s.eyebrowPill}>
+              <Text style={s.eyebrow}>ORGANIZER TOURNAMENT</Text>
+            </View>
+            <Text style={s.title}>{tournament.name}</Text>
+            {tournament.code && <Text style={s.code}>Tournament Code: {tournament.code}</Text>}
+            <View style={s.badges}>
+              <View style={[s.badge, publicationStyle(tournament.status)]}>
+                <TournamentIcon name={published ? 'check' : 'document'} size={13} />
+                <Text style={[s.badgeText, { color: publicationStyle(tournament.status).color }]}>
+                  {tournamentStatusLabel(tournament.status)}
+                </Text>
+              </View>
+              {progress && (
+                <View style={[s.badge, progressStyle(progress.type)]}>
+                  <TournamentIcon name={progressIcon} size={13} />
+                  <Text style={[s.badgeText, { color: progressStyle(progress.type).color }]}>
+                    {progress.label}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+          <View style={s.heroFade} />
+        </ImageBackground>
+
+        <View style={s.body}>
+          <Section icon="calendar" title="Tournament details">
+            <View style={s.infoCard}>
+              <Info icon="calendar" label="Date" value={formatDate(tournament.startDate || tournament.tournamentDate)} />
+              <Info icon="clock" label="Reporting time" value={tournament.reportingTime} />
+              <Info icon="location" label="Venue" value={tournament.venue || tournament.venueName} />
+              <Info icon="map" label="Address" value={tournament.location || tournament.venueAddress} />
+              <Info icon="trophy" label="Format" value={tournament.format} />
+              <Info
+                icon="calendar"
+                label="Registration closes"
+                value={formatDate(tournament.registrationCloseDate || tournament.registrationEndDate)}
+              />
+              <Info icon="clock" label="Registration close time" value={tournament.registrationCloseTime} />
+            </View>
+          </Section>
+
+          {(tournament.description || tournament.description === '') && (
+            <Section icon="document" title="Description">
+              <View style={s.card}>
+                <Text style={s.bodyText}>{tournament.description || 'No description provided.'}</Text>
+              </View>
+            </Section>
+          )}
+
+          <Section icon="people" title="Categories">
+            {categories.map((category: any) => (
+              <CategoryCard
+                key={category.id}
+                category={category}
+                tournamentId={String(id)}
+                registrations={registrationRows}
+              />
+            ))}
+            {!categories.length && (
+              <View style={s.card}>
+                <Text style={s.muted}>No categories available.</Text>
+              </View>
+            )}
+          </Section>
+
+          <View style={s.card}>
+            <Info icon="trophy" label="Prize" value={tournament.prize || tournament.prizeAmount || tournament.prizePool} />
+            <View style={s.splitRow}>
+              <Info icon="shuttle" label="Shuttle type" value={tournament.shuttleType || tournament.shuttle} half />
+              <Info
+                icon="settings"
+                label="Scoring format"
+                value={tournament.winningPoints ?? tournament.winning_points ?? tournament.scoringFormat}
+                half
+              />
+            </View>
+            <Pressable
+              style={s.ctaButton}
+              onPress={() => router.push({ pathname: '/(organizer)/fixtures', params: { id: String(id) } })}
+            >
+              <TournamentIcon name="bracket" size={18} />
+              <Text style={s.ctaText}>View Fixtures</Text>
+              <Text style={s.ctaArrow}>→</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={s.footer}>
+          <Text style={s.footerBrand}>
+            Smash<Text style={s.footerLime}>Point</Text>
+          </Text>
+          <Text style={s.footerTagline}>More Than a Game</Text>
+          <Text style={s.footerPlay}>PLAY  ·  COMPETE  ·  CONNECT</Text>
         </View>
       </ScrollView>
     </ScreenContainer>
+  );
+}
+
+function Section({ icon, title, children }: { icon: TournamentIconName; title: string; children: ReactNode }) {
+  return (
+    <View style={s.section}>
+      <View style={s.sectionHeadingRow}>
+        <View style={s.sectionIcon}>
+          <TournamentIcon name={icon} size={16} />
+        </View>
+        <Text style={s.heading}>{title}</Text>
+      </View>
+      {children}
+    </View>
   );
 }
 
@@ -185,48 +243,83 @@ function CategoryCard({
   return (
     <View style={s.category}>
       <View style={s.categoryHeader}>
-        <Text style={s.categoryName}>{category.name || category.eventType || 'Category'}</Text>
-        {hasCount && <Text style={s.registered}>{count} Registered</Text>}
+        <View style={s.categoryHeaderLeft}>
+          <TournamentIcon name="people" size={18} />
+          <Text style={s.categoryName}>{category.name || category.eventType || 'Category'}</Text>
+        </View>
+        {hasCount && (
+          <View style={s.registeredPill}>
+            <TournamentIcon name="people" size={13} />
+            <Text style={s.registered}>{count} Registered</Text>
+          </View>
+        )}
       </View>
-      <Info label="Event type" value={category.eventType} />
-      <Info
-        label="Medalists allowed"
-        value={booleanValue(category.medalistsAllowed ?? category.medalists_allowed)}
-      />
-      <Info
-        label="Open players allowed"
-        value={booleanValue(category.openPlayersAllowed ?? category.open_players_allowed)}
-      />
-      <Info
-        label="Beginner only"
-        value={booleanValue(category.beginnerOnly ?? category.beginner_only)}
-      />
-      <Info
-        label="Pure beginner only"
-        value={booleanValue(category.pureBeginnerOnly ?? category.pure_beginner_only)}
-      />
-      <PrimaryButton
-        title="View registrations & fixture shuffle  →"
+      <View style={s.categoryGrid}>
+        <Info icon="shuttle" label="Event type" value={category.eventType} half />
+        <Info
+          icon="medal"
+          label="Medalists allowed"
+          value={booleanValue(category.medalistsAllowed ?? category.medalists_allowed)}
+          half
+        />
+        <Info
+          icon="star"
+          label="Beginner only"
+          value={booleanValue(category.beginnerOnly ?? category.beginner_only)}
+          half
+        />
+        <Info
+          icon="bars"
+          label="Pure beginner only"
+          value={booleanValue(category.pureBeginnerOnly ?? category.pure_beginner_only)}
+          half
+        />
+        <Info
+          icon="people"
+          label="Open players allowed"
+          value={booleanValue(category.openPlayersAllowed ?? category.open_players_allowed)}
+        />
+      </View>
+      <Pressable
+        style={s.ctaButton}
         onPress={() =>
           router.push({
             pathname: '/(organizer)/registrations',
             params: { id: tournamentId, categoryId },
           })
         }
-      />
+      >
+        <TournamentIcon name="people" size={18} />
+        <Text style={s.ctaText}>View registrations & fixture shuffle</Text>
+        <Text style={s.ctaArrow}>→</Text>
+      </Pressable>
     </View>
   );
 }
 
-function SectionTitle({ title }: { title: string }) {
-  return <Text style={s.heading}>{title}</Text>;
-}
-function Info({ label, value }: { label: string; value: unknown }) {
+function Info({
+  icon,
+  label,
+  value,
+  half,
+}: {
+  icon?: TournamentIconName;
+  label: string;
+  value: unknown;
+  half?: boolean;
+}) {
   if (value == null || value === '') return null;
   return (
-    <View style={s.info}>
-      <Text style={s.infoLabel}>{label}</Text>
-      <Text style={s.infoValue}>{String(value)}</Text>
+    <View style={[s.info, half && s.infoHalf]}>
+      {icon && (
+        <View style={s.infoIcon}>
+          <TournamentIcon name={icon} size={14} />
+        </View>
+      )}
+      <View style={s.infoCopy}>
+        <Text style={s.infoLabel}>{label}</Text>
+        <Text style={s.infoValue}>{String(value)}</Text>
+      </View>
     </View>
   );
 }
@@ -243,90 +336,151 @@ function booleanValue(value: unknown) {
 }
 function publicationStyle(status: string) {
   return String(status).toUpperCase() === 'PUBLISHED'
-    ? { backgroundColor: '#DDF6E7', color: colors.success }
-    : { backgroundColor: '#E9EEEC', color: colors.secondary };
+    ? { backgroundColor: 'rgba(138, 226, 52, 0.14)', borderColor: colors.lime, color: colors.lime }
+    : { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: '#3A5C50', color: '#C6DDD1' };
 }
 function progressStyle(type: string) {
   switch (type) {
     case 'completed':
-      return { backgroundColor: '#E3EEF8', color: colors.info };
+      return { backgroundColor: 'rgba(59, 130, 196, 0.16)', borderColor: '#3B82C4', color: '#9CCBEE' };
     case 'live':
-      return { backgroundColor: '#D7F6E7', color: colors.sport };
+      return { backgroundColor: 'rgba(138, 226, 52, 0.14)', borderColor: colors.lime, color: colors.lime };
     case 'closed':
-      return { backgroundColor: '#FFF0D8', color: '#A86A0A' };
+      return { backgroundColor: 'rgba(242, 163, 58, 0.16)', borderColor: '#F2A33A', color: '#F2A33A' };
     default:
-      return { backgroundColor: '#E8F8C9', color: colors.primaryDark };
+      return { backgroundColor: 'rgba(138, 226, 52, 0.14)', borderColor: colors.lime, color: colors.lime };
   }
 }
 
 const s = StyleSheet.create({
+  scroll: { backgroundColor: '#031A16' },
   content: { paddingBottom: 44 },
-  back: { color: '#B8D5C6', fontWeight: '800', marginTop: spacing.md },
-  eyebrow: {
-    color: colors.lime,
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.4,
-    marginTop: spacing.xl,
-  },
-  title: { color: colors.white, fontSize: 30, fontWeight: '900', marginTop: spacing.sm },
-  code: { color: '#C6DDD1', fontSize: 13, marginTop: spacing.sm },
-  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: spacing.lg },
-  badge: {
+  hero: { minHeight: 300, paddingTop: 8 },
+  heroImage: { resizeMode: 'cover' },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(2, 27, 21, 0.6)' },
+  heroFade: { position: 'absolute', left: 0, right: 0, bottom: -1, height: 30, backgroundColor: '#031A16' },
+  heroTopRow: { paddingHorizontal: 20, paddingTop: 6 },
+  heroBody: { paddingHorizontal: 20, marginTop: 14 },
+  eyebrowPill: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: colors.lime,
     borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: 10,
   },
-  heading: {
-    color: colors.white,
-    fontSize: 21,
-    fontWeight: '900',
-    marginTop: spacing.section,
-    marginBottom: spacing.md,
+  eyebrow: { color: colors.lime, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
+  title: { color: colors.white, fontSize: 28, fontWeight: '900', lineHeight: 33 },
+  code: { color: '#C6DDD1', fontSize: 12, marginTop: 8 },
+  badges: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
+  badgeText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.4 },
+  body: { paddingHorizontal: 20 },
+  section: { marginTop: 26 },
+  sectionHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  sectionIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: 'rgba(138, 226, 52, 0.14)',
+    borderWidth: 1,
+    borderColor: '#2E6C56',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heading: { color: colors.white, fontSize: 18, fontWeight: '900' },
   infoCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    backgroundColor: '#EFF6F1',
+    borderRadius: radius.lg,
     padding: spacing.lg,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    ...shadows.card,
   },
-  info: { width: '50%', paddingRight: spacing.md, marginBottom: spacing.lg },
-  infoLabel: { color: colors.muted, fontSize: 11, marginBottom: 3 },
-  infoValue: { color: colors.text, fontSize: 14, fontWeight: '800' },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    ...shadows.card,
+  card: { backgroundColor: '#EFF6F1', borderRadius: radius.lg, padding: spacing.lg, marginTop: 4 },
+  bodyText: { color: '#243B32', lineHeight: 22, fontSize: 14 },
+  muted: { color: '#5C776C' },
+  info: { width: '100%', flexDirection: 'row', gap: 8, marginBottom: spacing.lg, paddingRight: spacing.sm },
+  infoHalf: { width: '50%' },
+  infoIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: 'rgba(15, 122, 79, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginTop: 1,
   },
-  body: { color: colors.text, lineHeight: 22, fontSize: 14 },
-  muted: { color: colors.muted },
+  infoCopy: { flex: 1, minWidth: 0 },
+  infoLabel: { color: '#5C776C', fontSize: 11, marginBottom: 3 },
+  infoValue: { color: '#12211B', fontSize: 14, fontWeight: '800' },
+  splitRow: { flexDirection: 'row', flexWrap: 'wrap' },
+  ctaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.primary,
+    borderRadius: radius.medium,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+    marginTop: spacing.sm,
+    shadowColor: colors.lime,
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
+  },
+  ctaText: { color: colors.white, fontSize: 14, fontWeight: '900', flex: 1 },
+  ctaArrow: { color: colors.white, fontSize: 16, fontWeight: '900' },
   category: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    backgroundColor: '#EFF6F1',
+    borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
-    ...shadows.card,
   },
   categoryHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
+    gap: 8,
   },
+  categoryHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
   categoryName: {
-    color: colors.primaryDark,
-    fontSize: 18,
+    color: '#12211B',
+    fontSize: 16,
     fontWeight: '900',
     textTransform: 'uppercase',
-    flex: 1,
+    flexShrink: 1,
   },
-  registered: { color: colors.primary, fontSize: 12, fontWeight: '900' },
-  loading: { color: colors.white, fontSize: 20, fontWeight: '800', marginTop: spacing.section },
-  errorTitle: { color: colors.white, fontSize: 22, fontWeight: '900', marginTop: spacing.section },
+  registeredPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(15, 122, 79, 0.12)',
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flexShrink: 0,
+  },
+  registered: { color: colors.primary, fontSize: 11, fontWeight: '900' },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  loading: { color: colors.white, fontSize: 20, fontWeight: '800', marginTop: spacing.section, marginHorizontal: spacing.lg },
+  errorTitle: { color: colors.white, fontSize: 22, fontWeight: '900', marginTop: spacing.section, marginHorizontal: spacing.lg },
+  retryButton: { backgroundColor: colors.primary, borderRadius: radius.medium, padding: spacing.lg, alignItems: 'center', marginHorizontal: spacing.lg, marginTop: spacing.md },
+  retryButtonText: { color: colors.white, fontWeight: '800', fontSize: 16 },
+  footer: { alignItems: 'center', paddingTop: 40, paddingBottom: 20 },
+  footerBrand: { color: colors.white, fontSize: 22, fontWeight: '900' },
+  footerLime: { color: colors.lime },
+  footerTagline: { color: '#8FA59B', fontSize: 12, marginTop: 4 },
+  footerPlay: { color: '#5C776C', fontSize: 10, fontWeight: '800', letterSpacing: 1.4, marginTop: 14 },
 });

@@ -1,5 +1,6 @@
 import { Text, ScrollView, RefreshControl, StyleSheet } from 'react-native';
 import { ScreenContainer } from './ScreenContainer';
+import { BackButton } from './BackButton';
 import { useAuthStore } from '../../store/authStore';
 import { useNotifications } from '../../features/player/notifications';
 import { colors } from '../../theme';
@@ -10,7 +11,10 @@ import { PrimaryButton } from './PrimaryButton';
 // by recipientId/recipientRole server-side), so this is the one implementation all three render.
 export function NotificationsScreen() {
   const id = useAuthStore((s) => s.user?.id) || '';
+  const workspace = useAuthStore((s) => s.activeWorkspace);
   const n = useNotifications(id);
+  const fallbackRoute =
+    workspace === 'ORGANIZER' ? '/(organizer)/' : workspace === 'ADMIN' ? '/(admin)/' : '/(player)/';
   return (
     <ScreenContainer>
       <ScrollView
@@ -24,6 +28,7 @@ export function NotificationsScreen() {
           />
         }
       >
+        <BackButton fallbackRoute={fallbackRoute} />
         <Text style={s.title}>Notifications {n.unread.data ? `(${n.unread.data})` : ''}</Text>
         {n.list.isLoading && <Text>Loading notifications…</Text>}
         {n.list.isError && (

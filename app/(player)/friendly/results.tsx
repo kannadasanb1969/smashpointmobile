@@ -14,6 +14,7 @@ import {
 import { useAuthStore } from '../../../src/store/authStore';
 import { ScreenContainer } from '../../../src/components/common/ScreenContainer';
 import { PrimaryButton } from '../../../src/components/common/PrimaryButton';
+import { BackButton } from '../../../src/components/common/BackButton';
 import { colors } from '../../../src/theme';
 export default function Results() {
   const { id } = useLocalSearchParams<{ id: string }>(),
@@ -59,6 +60,7 @@ export default function Results() {
       <ScrollView
         refreshControl={<RefreshControl refreshing={q.isFetching} onRefresh={() => q.refetch()} />}
       >
+        <BackButton />
         <Text style={s.title}>{d.data?.title || 'Friendly Results'}</Text>
         {q.isLoading && <Text>Loading…</Text>}
         {q.isError && (
@@ -83,7 +85,9 @@ export default function Results() {
                 <Text style={s.heading}>Winner</Text>
                 <Text style={s.card}>
                   {resolveFriendlySide(
-                    result.data.winner?.participantId ?? result.data.result?.winnerName,
+                    result.data.winner
+                      ? { id: result.data.winner.participantId, type: result.data.winner.participantType }
+                      : result.data.result?.winnerName,
                     p.data || [],
                     t.data || [],
                   )}
@@ -91,7 +95,9 @@ export default function Results() {
                 <Text style={s.heading}>Runner-up</Text>
                 <Text style={s.card}>
                   {resolveFriendlySide(
-                    result.data.runnerUp?.participantId ?? result.data.result?.runnerUpName,
+                    result.data.runnerUp
+                      ? { id: result.data.runnerUp.participantId, type: result.data.runnerUp.participantType }
+                      : result.data.result?.runnerUpName,
                     p.data || [],
                     t.data || [],
                   )}
@@ -115,7 +121,12 @@ export default function Results() {
             <Text style={s.heading}>Standings</Text>
             {(standings.data.standings || []).map((x: any, i: number) => (
               <Text key={x.participantId || i} style={s.card}>
-                {resolveFriendlySide(x.participantId, p.data || [], t.data || [])} · {x.won} wins ·{' '}
+                {resolveFriendlySide(
+                  { id: x.participantId, type: x.participantType },
+                  p.data || [],
+                  t.data || [],
+                )}{' '}
+                · {x.won} wins ·{' '}
                 {x.played} played
               </Text>
             ))}

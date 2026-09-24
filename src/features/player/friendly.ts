@@ -33,8 +33,6 @@ export const friendlyStatusLabel = (status: string) =>
       DRAFT: 'Draft',
     }) as Record<string, string>
   )[status] || 'Status unavailable';
-export const cleanupAllowed = (match: any, currentId: string) =>
-  friendlyIsOwner(match, currentId) && match?.status === 'CLEANUP_PENDING';
 export const getFriendlyDetailsActions = (x: {
   isCreator: boolean;
   eventType: string;

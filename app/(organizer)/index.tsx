@@ -11,11 +11,88 @@ import {
   tournamentStatusLabel,
 } from '../../src/features/organizer/status';
 
+const isCompletedTournament = (x: any) =>
+  x.completionStatus === 'COMPLETED' || x.status === 'COMPLETED';
+
+// DOUBLES result names arrive as "Player One / Player Two"; render each side as its own line.
+const resultNames = (name?: string) =>
+  String(name || '')
+    .split('/')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+function ResultRow({
+  place,
+  rank,
+  tone,
+  name,
+}: {
+  place: 'WINNER' | 'RUNNER-UP';
+  rank: 1 | 2;
+  tone: 'gold' | 'silver';
+  name: string;
+}) {
+  const names = resultNames(name);
+  return (
+    <View style={[s.resultRow, tone === 'gold' ? s.resultRowGold : s.resultRowSilver]}>
+      <View style={[s.resultMedal, tone === 'gold' ? s.resultMedalGold : s.resultMedalSilver]}>
+        <Text style={[s.resultMedalIcon, tone === 'gold' ? s.resultPlaceGold : s.resultPlaceSilver]}>
+          {rank}
+        </Text>
+      </View>
+      <View style={s.resultCopy}>
+        <Text style={[s.resultPlace, tone === 'gold' ? s.resultPlaceGold : s.resultPlaceSilver]}>
+          {place}
+        </Text>
+        <Text style={s.resultName} numberOfLines={2}>
+          {names.length ? names.join(' • ') : 'Result unavailable'}
+        </Text>
+      </View>
+      <Text style={[s.resultChevron, tone === 'gold' ? s.resultPlaceGold : s.resultPlaceSilver]}>
+        ›
+      </Text>
+    </View>
+  );
+}
+
+function TournamentResults({ categories }: { categories: any[] }) {
+  const withResults = categories.filter((c) => c?.result);
+  if (!withResults.length) return null;
+  const multi = withResults.length > 1;
+  return (
+    <View style={s.resultsSection}>
+      <View style={s.resultsHeader}>
+        <Text style={s.resultsTitle}>🏆 Tournament Results</Text>
+        <Text style={s.resultsSubtitle}>Congratulations to all the participants!</Text>
+      </View>
+      {withResults.map((category) => (
+        <View key={category.id} style={s.resultsGroup}>
+          {multi && <Text style={s.resultsCategoryName}>{category.name}</Text>}
+          <ResultRow
+            place="WINNER"
+            rank={1}
+            tone="gold"
+            name={category.result.winnerParticipantName}
+          />
+          <ResultRow
+            place="RUNNER-UP"
+            rank={2}
+            tone="silver"
+            name={category.result.runnerUpParticipantName}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export default function Organizer() {
   const u = useAuthStore((s) => s.user);
   const q = useOrganizerTournaments(u?.id || '');
   const rows = q.data || [];
   const publishedCount = rows.filter((x: any) => x.status === 'PUBLISHED').length;
+  const completedCount = rows.filter(isCompletedTournament).length;
+  const draftsCount = rows.filter((x: any) => String(x.status || '').toUpperCase() === 'DRAFT').length;
   return (
     <ScreenContainer dark>
       <ScrollView
@@ -51,6 +128,16 @@ export default function Organizer() {
               <Text style={s.statValue}>{publishedCount}</Text>
               <Text style={s.statLabel}>PUBLISHED</Text>
             </View>
+            <View style={s.statDivider} />
+            <View style={s.stat}>
+              <Text style={s.statValue}>{completedCount}</Text>
+              <Text style={s.statLabel}>COMPLETED</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.stat}>
+              <Text style={s.statValue}>{draftsCount}</Text>
+              <Text style={s.statLabel}>DRAFTS</Text>
+            </View>
           </View>
         </View>
         <View style={s.actions}>
@@ -82,14 +169,15 @@ export default function Organizer() {
         <View style={s.list}>
           {rows.map((x: any) => {
             const progress = getTournamentDisplayStatus(x);
+            const completed = isCompletedTournament(x);
+            const categories = Array.isArray(x.categories) ? x.categories : [];
+            const hasResults = completed && categories.some((c: any) => c?.result);
+            const goToDetails = () =>
+              router.push({ pathname: '/(organizer)/tournament', params: { id: x.id } });
+            const goToResults = () =>
+              router.push({ pathname: '/(organizer)/fixtures', params: { id: x.id } });
             return (
-              <Pressable
-                key={x.id}
-                style={s.card}
-                onPress={() =>
-                  router.push({ pathname: '/(organizer)/tournament', params: { id: x.id } })
-                }
-              >
+              <Pressable key={x.id} style={s.card} onPress={goToDetails}>
                 <View style={s.cardTop}>
                   <View style={s.badges}>
                     <Text style={[s.status, statusStyle(x.status)]}>
@@ -106,6 +194,20 @@ export default function Organizer() {
                   <Text style={s.event}>🏸 Badminton tournament</Text>
                   <Text style={s.view}>View tournament ›</Text>
                 </View>
+                {hasResults && <TournamentResults categories={categories} />}
+                {hasResults && (
+                  <View style={s.cardActions}>
+                    <Pressable
+                      style={[s.cardActionButton, s.cardActionButtonLeft]}
+                      onPress={goToResults}
+                    >
+                      <Text style={s.cardActionText}>📊 View results</Text>
+                    </Pressable>
+                    <Pressable style={s.cardActionButton} onPress={goToDetails}>
+                      <Text style={s.cardActionText}>📄 Tournament details</Text>
+                    </Pressable>
+                  </View>
+                )}
               </Pressable>
             );
           })}
@@ -216,11 +318,17 @@ const s = StyleSheet.create({
   },
   title: { color: colors.white, fontSize: 30, fontWeight: '900' },
   copy: { color: '#C6DDD1', fontSize: 14, lineHeight: 21, marginTop: spacing.sm, maxWidth: 290 },
-  statsRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.xl },
-  stat: { minWidth: 90 },
-  statValue: { color: colors.lime, fontSize: 24, fontWeight: '900' },
-  statLabel: { color: '#B8D5C6', fontSize: 10, fontWeight: '800', letterSpacing: 1, marginTop: 2 },
-  statDivider: { backgroundColor: '#5B9076', height: 32, width: 1, marginHorizontal: spacing.lg },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    rowGap: spacing.md,
+    marginTop: spacing.xl,
+  },
+  stat: { minWidth: 62 },
+  statValue: { color: colors.lime, fontSize: 22, fontWeight: '900' },
+  statLabel: { color: '#B8D5C6', fontSize: 9, fontWeight: '800', letterSpacing: 0.6, marginTop: 2 },
+  statDivider: { backgroundColor: '#5B9076', height: 28, width: 1, marginHorizontal: spacing.sm },
   actions: { gap: spacing.md, marginTop: spacing.xl },
   createCard: {
     backgroundColor: colors.lime,
@@ -291,6 +399,59 @@ const s = StyleSheet.create({
   },
   event: { color: colors.secondary, fontSize: 12 },
   view: { color: colors.primary, fontSize: 12, fontWeight: '900' },
+  resultsSection: {
+    marginTop: spacing.md,
+    backgroundColor: '#EAF7EF',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  resultsHeader: { marginBottom: 2 },
+  resultsTitle: { color: colors.primaryDark, fontSize: 14, fontWeight: '900' },
+  resultsSubtitle: { color: colors.secondary, fontSize: 11, marginTop: 2 },
+  resultsGroup: { gap: spacing.xs },
+  resultsCategoryName: {
+    color: colors.primaryDark,
+    fontSize: 12,
+    fontWeight: '900',
+    marginTop: spacing.xs,
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  resultRowGold: { backgroundColor: '#FEF3D7', borderWidth: 1, borderColor: '#F3D98B' },
+  resultRowSilver: { backgroundColor: '#EEF1F1', borderWidth: 1, borderColor: '#D8DEDD' },
+  resultMedal: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  resultMedalGold: { backgroundColor: '#F6D677' },
+  resultMedalSilver: { backgroundColor: '#D3D9D8' },
+  resultMedalIcon: { fontSize: 16, fontWeight: '900' },
+  resultCopy: { flex: 1, minWidth: 0 },
+  resultPlace: { fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
+  resultPlaceGold: { color: '#A8760A' },
+  resultPlaceSilver: { color: '#5E6B69' },
+  resultName: { color: colors.text, fontSize: 13, fontWeight: '800', marginTop: 2, flexWrap: 'wrap' },
+  resultChevron: { fontSize: 20, fontWeight: '900', flexShrink: 0 },
+  cardActions: {
+    flexDirection: 'row',
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+  },
+  cardActionButton: { flex: 1, alignItems: 'center', paddingVertical: spacing.xs },
+  cardActionButtonLeft: { borderRightColor: colors.border, borderRightWidth: 1 },
+  cardActionText: { color: colors.primary, fontSize: 12, fontWeight: '900' },
   empty: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,

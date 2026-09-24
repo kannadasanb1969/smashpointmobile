@@ -6,10 +6,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ScreenContainer } from '../../../src/components/common/ScreenContainer';
+import { BackButton } from '../../../src/components/common/BackButton';
 import { ops } from '../../../src/features/organizer/operations';
 import {
   fixtureLabel,
@@ -215,9 +216,7 @@ export default function PlayerFixtures() {
         }
         contentContainerStyle={s.page}
       >
-        <Text onPress={() => router.back()} style={s.back}>
-          ‹ Back to tournament
-        </Text>
+        <BackButton variant="dark" style={s.back} />
         <View style={s.hero}>
           <Text style={s.eyebrow}>MY MATCH CENTRE</Text>
           <Text style={s.title}>Fixture - Knockout</Text>
@@ -451,7 +450,7 @@ function ScoreRow({ name, score, winner }: { name: string; score: unknown; winne
 
 const s = StyleSheet.create({
   page: { paddingBottom: 70 },
-  back: { color: colors.lime, fontWeight: '800', paddingVertical: 10 },
+  back: { marginBottom: 6 },
   hero: {
     backgroundColor: '#082B24',
     borderRadius: 20,

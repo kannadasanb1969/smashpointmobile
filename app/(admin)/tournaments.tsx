@@ -2,6 +2,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, Pressable } from 'react-n
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
+import { BackButton } from '../../src/components/common/BackButton';
 import { adminApi } from '../../src/features/admin/api';
 import { colors } from '../../src/theme';
 export default function Tournaments() {
@@ -12,9 +13,7 @@ export default function Tournaments() {
       <ScrollView
         refreshControl={<RefreshControl refreshing={q.isFetching} onRefresh={() => q.refetch()} />}
       >
-        <Text onPress={() => router.back()} style={s.back}>
-          ‹ Back
-        </Text>
+        <BackButton fallbackRoute="/(admin)/" style={s.back} />
         <Text style={s.title}>Tournament Management</Text>
         {q.isLoading && <Text>Loading tournaments…</Text>}
         {q.isError && <Text style={s.error}>Unable to load tournaments. Pull to retry.</Text>}
@@ -38,7 +37,7 @@ export default function Tournaments() {
   );
 }
 const s = StyleSheet.create({
-  back: { color: colors.primary, fontWeight: '700', marginTop: 25 },
+  back: { marginTop: 25 },
   title: { fontSize: 30, fontWeight: '800', color: colors.text, marginVertical: 18 },
   card: { backgroundColor: colors.white, padding: 18, borderRadius: 16, marginBottom: 10 },
   name: { fontWeight: '800', fontSize: 17, color: colors.text },

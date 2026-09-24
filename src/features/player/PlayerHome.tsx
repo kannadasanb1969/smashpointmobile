@@ -1,4 +1,4 @@
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { BottomNav } from '../../components/common/BottomNav';
@@ -6,6 +6,16 @@ import { useAuthStore } from '../../store/authStore';
 import { useNotifications } from './notifications';
 import { useRegistrations, useTournaments, useProfile } from './api';
 import { colors, radius, spacing } from '../../theme';
+import { GlobalUserMenu } from '../../components/common/GlobalUserMenu';
+import { TournamentIcon } from '../../components/common/TournamentIcon';
+
+const heroBg = require('../../../assets/images/login-badminton-bg.png');
+const activeEntriesBg = require('../../../assets/images/image2.png');
+const openEventsBg = require('../../../assets/images/image9.png');
+const findPlayersBg = require('../../../assets/images/image4.png');
+const newAlertsBg = require('../../../assets/images/image8.png');
+const tournamentsBg = require('../../../assets/images/image5.png');
+const registrationsBg = require('../../../assets/images/image7.png');
 
 export default function PlayerHome() {
   const user = useAuthStore((s) => s.user);
@@ -32,38 +42,52 @@ export default function PlayerHome() {
             Smash<Text style={styles.brandAccent}>Point</Text>
           </Text>
           <Text style={styles.role}>PLAYER</Text>
+          <TournamentIcon name="shuttle" size={16} />
           <Pressable
             accessibilityLabel="Notifications"
+            style={styles.bellButton}
             onPress={() => router.push('/(player)/notifications')}
           >
-            <Text style={styles.bell}>♧ {unread ? unread : ''}</Text>
+            <Text style={styles.bell}>♧</Text>
+            {unread > 0 && <View style={styles.bellDot} />}
           </Pressable>
         </View>
-        <View style={styles.hero}>
+        <ImageBackground source={heroBg} style={styles.hero} imageStyle={styles.heroImage}>
+          <View style={styles.heroOverlay} pointerEvents="none" />
           <View style={styles.heroCopy}>
             <Text style={styles.eyebrow}>WELCOME BACK</Text>
             <Text style={styles.heroTitle}>Hi, {name} 👋</Text>
             <Text style={styles.heroSub}>Ready to own the court today?</Text>
           </View>
-          {profile.data?.profilePhoto ? (
-            <Image source={{ uri: profile.data.profilePhoto }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.initial}>{name.charAt(0).toUpperCase()}</Text>
-            </View>
-          )}
-        </View>
+          <GlobalUserMenu embedded displayName={name} />
+        </ImageBackground>
         <View style={styles.stats}>
-          <Stat icon="◉" value={String(regs.length)} label="Active entries" />
-          <Stat icon="♛" value={String(events.length)} label="Open events" />
           <Stat
-            icon="♙"
+            bg={activeEntriesBg}
+            tint={styles.tintGreen}
+            icon="shuttle"
+            value={String(regs.length)}
+            label="Active entries"
+          />
+          <Stat
+            bg={openEventsBg}
+            tint={styles.tintBlue}
+            icon="trophy"
+            value={String(events.length)}
+            label="Open events"
+          />
+          <Stat
+            bg={findPlayersBg}
+            tint={styles.tintGold}
+            icon="people"
             value="→"
             label="Find players"
             onPress={() => router.push('/(player)/players')}
           />
           <Stat
-            icon="♧"
+            bg={newAlertsBg}
+            tint={styles.tintPurple}
+            glyph="♧"
             value={String(unread)}
             label="New alerts"
             onPress={() => router.push('/(player)/notifications')}
@@ -81,14 +105,20 @@ export default function PlayerHome() {
         ) : events.length ? (
           events.map((item) => <TournamentCard key={item.id} item={item} dateParts={dateParts} />)
         ) : (
-          <Text style={styles.empty}>No open tournaments right now.</Text>
+          <ImageBackground source={tournamentsBg} style={styles.emptyCard} imageStyle={styles.emptyCardImage}>
+            <View style={styles.emptyCardOverlay} pointerEvents="none" />
+            <TournamentIcon name="shuttle" size={26} />
+            <Text style={styles.emptyTitle}>No open tournaments right now.</Text>
+            <Text style={styles.emptySub}>New events will appear here. Stay tuned!</Text>
+          </ImageBackground>
         )}
         <Section
           eyebrow="YOUR TOURNAMENT JOURNEY"
           title="My Registrations"
           onPress={() => router.push('/(player)/registrations')}
         />
-        <View style={styles.registration}>
+        <ImageBackground source={registrationsBg} style={styles.registration} imageStyle={styles.registrationImage}>
+          <View style={styles.registrationOverlay} pointerEvents="none" />
           {registrations.isLoading ? (
             <Text style={styles.muted}>Loading registrations…</Text>
           ) : regs.length ? (
@@ -98,32 +128,45 @@ export default function PlayerHome() {
             </Text>
           ) : (
             <>
-              <Text style={styles.regIcon}>◌</Text>
-              <Text style={styles.muted}>Your confirmed entries will show here.</Text>
+              <TournamentIcon name="document" size={24} />
+              <Text style={styles.regTitle}>Your confirmed entries will show here.</Text>
+              <Text style={styles.regSub}>Register for tournaments and start your journey!</Text>
             </>
           )}
-        </View>
+        </ImageBackground>
       </ScrollView>
       <BottomNav active="Home" />
     </ScreenContainer>
   );
 }
 function Stat({
+  bg,
+  tint,
   icon,
+  glyph,
   value,
   label,
   onPress,
 }: {
-  icon: string;
+  bg: number;
+  tint: object;
+  icon?: any;
+  glyph?: string;
   value: string;
   label: string;
   onPress?: () => void;
 }) {
   return (
     <Pressable onPress={onPress} style={styles.stat}>
-      <Text style={styles.statIcon}>{icon}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <ImageBackground source={bg} style={styles.statBg} imageStyle={styles.statBgImage}>
+        <View style={[styles.statTint, tint]} pointerEvents="none" />
+        <View style={styles.statIconBadge}>
+          {glyph ? <Text style={styles.statGlyph}>{glyph}</Text> : <TournamentIcon name={icon} size={18} />}
+        </View>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={styles.statChevron}>›</Text>
+      </ImageBackground>
     </Pressable>
   );
 }
@@ -185,7 +228,7 @@ function TournamentCard({
 }
 const styles = StyleSheet.create({
   content: { paddingTop: spacing.md, paddingBottom: spacing.xl },
-  brandRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.md },
   brand: { color: colors.white, fontSize: 22, fontWeight: '900' },
   brandAccent: { color: colors.lime },
   role: {
@@ -193,48 +236,61 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 1.5,
-    marginLeft: spacing.md,
+    marginLeft: spacing.sm,
   },
-  bell: { color: colors.lime, fontSize: 20, marginLeft: 'auto' },
+  bellButton: { marginLeft: 'auto' },
+  bell: { color: colors.white, fontSize: 20 },
+  bellDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#E5484D',
+  },
   hero: {
     minHeight: 132,
     borderRadius: radius.lg,
-    backgroundColor: '#082D24',
-    borderWidth: 1,
-    borderColor: '#0D6049',
     padding: spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     overflow: 'hidden',
   },
+  heroImage: { borderRadius: radius.lg },
+  heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(3, 26, 22, 0.55)' },
   heroCopy: { flex: 1 },
   eyebrow: { color: colors.lime, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },
   heroTitle: { color: colors.white, fontSize: 25, fontWeight: '900', marginTop: 8 },
-  heroSub: { color: '#A7B7B1', fontSize: 13, marginTop: 6 },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: '#164D3B',
+  heroSub: { color: '#D7E7E0', fontSize: 13, marginTop: 6 },
+  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: spacing.md },
+  stat: { width: '48%', borderRadius: radius.md, overflow: 'hidden', minHeight: 130 },
+  statBg: { flex: 1, padding: 12, minHeight: 130 },
+  statBgImage: { borderRadius: radius.md },
+  statTint: { ...StyleSheet.absoluteFillObject },
+  tintGreen: { backgroundColor: 'rgba(8, 45, 36, 0.6)' },
+  tintBlue: { backgroundColor: 'rgba(15, 30, 70, 0.6)' },
+  tintGold: { backgroundColor: 'rgba(60, 40, 5, 0.55)' },
+  tintPurple: { backgroundColor: 'rgba(50, 15, 65, 0.55)' },
+  statIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.lime,
   },
-  initial: { color: colors.lime, fontSize: 26, fontWeight: '900' },
-  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: spacing.md },
-  stat: {
-    width: '48%',
-    backgroundColor: '#062820',
-    borderWidth: 1,
-    borderColor: '#0D6049',
-    borderRadius: radius.md,
-    padding: 12,
-    minHeight: 104,
-  },
-  statIcon: { color: colors.lime, fontSize: 20 },
+  statGlyph: { color: colors.lime, fontSize: 18, fontWeight: '900' },
   statValue: { color: colors.white, fontSize: 27, fontWeight: '900', marginTop: 6 },
-  statLabel: { color: '#A7B7B1', fontSize: 12, marginTop: 2 },
+  statLabel: { color: '#E4EFE9', fontSize: 12, marginTop: 2 },
+  statChevron: {
+    position: 'absolute',
+    right: 10,
+    bottom: 8,
+    color: colors.white,
+    fontSize: 20,
+    fontWeight: '900',
+  },
   sectionRow: {
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
@@ -272,17 +328,29 @@ const styles = StyleSheet.create({
   chevron: { color: colors.lime, fontSize: 28, marginLeft: 6 },
   muted: { color: '#A7B7B1', fontSize: 13 },
   error: { color: '#FF8D8D', fontSize: 13 },
-  empty: { color: '#A7B7B1', padding: 16 },
-  registration: {
-    minHeight: 86,
-    borderWidth: 1,
-    borderColor: '#0D6049',
+  emptyCard: {
+    minHeight: 150,
     borderRadius: radius.md,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  emptyCardImage: { borderRadius: radius.md },
+  emptyCardOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(3, 26, 22, 0.45)' },
+  emptyTitle: { color: colors.white, fontWeight: '800', fontSize: 15, marginTop: spacing.sm, textAlign: 'center' },
+  emptySub: { color: '#D7E7E0', fontSize: 12, marginTop: 4, textAlign: 'center' },
+  registration: {
+    minHeight: 150,
+    borderRadius: radius.md,
+    overflow: 'hidden',
     padding: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#062820',
   },
-  regIcon: { color: colors.lime, fontSize: 22, marginBottom: 5 },
+  registrationImage: { borderRadius: radius.md },
+  registrationOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(3, 26, 22, 0.45)' },
   regText: { color: colors.white, fontWeight: '700' },
+  regTitle: { color: colors.white, fontWeight: '800', fontSize: 15, marginTop: spacing.sm, textAlign: 'center' },
+  regSub: { color: '#D7E7E0', fontSize: 12, marginTop: 4, textAlign: 'center' },
 });

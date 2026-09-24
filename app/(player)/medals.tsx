@@ -1,5 +1,6 @@
 import { Text, ScrollView, RefreshControl, StyleSheet } from 'react-native';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
+import { BackButton } from '../../src/components/common/BackButton';
 import { useAuthStore } from '../../src/store/authStore';
 import { usePlayerMedals } from '../../src/features/player/achievements';
 import { colors } from '../../src/theme';
@@ -11,6 +12,7 @@ export default function Medals() {
       <ScrollView
         refreshControl={<RefreshControl refreshing={q.isFetching} onRefresh={() => q.refetch()} />}
       >
+        <BackButton />
         <Text style={s.title}>Medal History</Text>
         {q.isLoading && <Text>Loading medals…</Text>}
         {q.isError && (

@@ -23,7 +23,7 @@ const resolveConfiguredUrl = (value: string | undefined) => {
 // If explicitly configured, use that value (for physical devices, etc.)
 // Otherwise, in development, use platform-appropriate localhost
 const apiBaseUrl = isProduction
-  ? production || ''
+  ? production || configured || ''
   : resolveConfiguredUrl(configured) || getLocalhostUrl(8787);
 
 export const env = { apiBaseUrl, isConfigured: Boolean(configured || production), isProduction };

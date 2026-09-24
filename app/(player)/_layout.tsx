@@ -5,7 +5,6 @@ import { useAuthStore } from '../../src/store/authStore';
 import { usePlayers } from '../../src/features/player/api';
 import { resolvePlayerProfile } from '../../src/features/player/profile';
 import { LoadingScreen } from '../../src/components/feedback/LoadingScreen';
-import { GlobalUserMenu } from '../../src/components/common/GlobalUserMenu';
 
 export default function PlayerLayout() {
   const user = useAuthStore((state) => state.user);
@@ -21,7 +20,6 @@ export default function PlayerLayout() {
   return (
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }} />
-      <GlobalUserMenu />
     </View>
   );
 }
