@@ -37,7 +37,10 @@ export default function Detail() {
         </Pressable>
       </View>
       <View style={s.heroBody}>
-        <View style={s.eyebrowPill}><Text style={s.eyebrow}>FRIENDLY MATCH</Text></View>
+        <View style={s.badgeRow}>
+          <View style={s.eyebrowPill}><Text style={s.eyebrow}>FRIENDLY MATCH TEST123</Text></View>
+          <View style={s.typePill}><Text style={s.typePillText}>{match.event_type}</Text></View>
+        </View>
         <Text style={s.title}>{match.title}</Text>
         <Text style={s.meta}>{match.event_type} · {match.format} · <Text style={s.active}>● {friendlyStatusLabel(match.status)}</Text></Text>
       </View>
@@ -57,14 +60,16 @@ export default function Detail() {
         <Quick icon="clock" title="View Results" sub="See match results" onPress={() => router.push({ pathname: '/(player)/friendly/results', params: { id } })} />
       </View>
 
-      {owner && match.status === 'OPEN' && <PrimaryButton title="Review Join Requests" onPress={() => router.push({ pathname: '/(player)/friendly/requests', params: { id } })}/>}
-      {!owner && !isParticipant && match.status === 'OPEN' && <PrimaryButton disabled={join.isPending} title={join.isPending ? 'Requesting…' : 'Request to Join'} onPress={() => join.mutate(undefined, { onSuccess: () => Alert.alert('Request sent', 'The host will review your request.'), onError: (e: any) => Alert.alert('Unable to join', e?.message || 'Please try again.') })}/>}
-      {owner && !isParticipant && match.status === 'OPEN' && <PrimaryButton disabled={join.isPending} title={join.isPending ? 'Joining…' : '🏸  Join as Player'} onPress={() => join.mutate(undefined, { onSuccess: () => Alert.alert("You're in!", 'You have been added as a player in your own match.'), onError: (e: any) => Alert.alert('Unable to join', e?.message || 'Please try again.') })}/>}
-      {owner && isParticipant && (
-        <View style={s.playingPill}>
-          <Text style={s.playingPillText}>🏸 Playing in this match</Text>
-        </View>
-      )}
+      <View style={s.actionsGroup}>
+        {owner && match.status === 'OPEN' && <PrimaryButton title="Review Join Requests" onPress={() => router.push({ pathname: '/(player)/friendly/requests', params: { id } })}/>}
+        {!owner && !isParticipant && match.status === 'OPEN' && <PrimaryButton disabled={join.isPending} title={join.isPending ? 'Requesting…' : 'Request to Join'} onPress={() => join.mutate(undefined, { onSuccess: () => Alert.alert('Request sent', 'The host will review your request.'), onError: (e: any) => Alert.alert('Unable to join', e?.message || 'Please try again.') })}/>}
+        {owner && !isParticipant && match.status === 'OPEN' && <PrimaryButton disabled={join.isPending} title={join.isPending ? 'Joining…' : '🏸  Join as Player'} onPress={() => join.mutate(undefined, { onSuccess: () => Alert.alert("You're in!", 'You have been added as a player in your own match.'), onError: (e: any) => Alert.alert('Unable to join', e?.message || 'Please try again.') })}/>}
+        {owner && isParticipant && (
+          <View style={s.playingPill}>
+            <Text style={s.playingPillText}>🏸 Playing in this match</Text>
+          </View>
+        )}
+      </View>
 
       <View style={s.section}>
         <View style={s.sectionHeadingRow}>
@@ -203,8 +208,12 @@ const s = StyleSheet.create({
   heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 6 },
   menuButton: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: '#2E6C56', backgroundColor: 'rgba(6, 45, 36, 0.7)', alignItems: 'center', justifyContent: 'center' },
   heroBody: { paddingHorizontal: 20, marginTop: 10 },
-  eyebrowPill: { alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.lime, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 10 },
-  playingPill: { alignSelf: 'flex-start', backgroundColor: 'rgba(138, 226, 52, 0.12)', borderWidth: 1, borderColor: 'rgba(138, 226, 52, 0.4)', borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8, marginTop: spacing.sm },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  eyebrowPill: { alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.lime, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
+  typePill: { alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.lime, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: 'magenta' },
+  typePillText: { color: colors.lime, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
+  actionsGroup: { gap: spacing.md },
+  playingPill: { alignSelf: 'flex-start', backgroundColor: 'rgba(138, 226, 52, 0.12)', borderWidth: 1, borderColor: 'rgba(138, 226, 52, 0.4)', borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
   playingPillText: { color: colors.lime, fontWeight: '900', fontSize: 13 },
   eyebrow: { color: colors.lime, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
   title: { color: colors.white, fontSize: 24, fontWeight: '900', lineHeight: 29 },
