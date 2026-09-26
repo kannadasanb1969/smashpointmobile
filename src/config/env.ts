@@ -1,29 +1,24 @@
-import { Platform } from 'react-native';
+// Single source of truth for the mobile API base URL: the root apiConfig.ts
+// (comment/uncomment file, not an env var). See apiConfig.ts at the project
+// root — that is the ONLY file to edit to switch between LOCAL and
+// PRODUCTION; nothing else in the app selects a runtime API URL.
+import { API_BASE_URL } from '../../apiConfig';
 
-// Helper to get localhost-equivalent URL for current platform
-const getLocalhostUrl = (port: number): string => {
-  if (Platform.OS === 'android') {
-    // Android emulator uses 10.0.2.2 to reach host localhost
-    // Physical Android devices should use actual LAN IP (set via env var)
-    return `http://10.0.2.2:${port}`;
-  }
-  // iOS simulator and web use localhost
-  return `http://localhost:${port}`;
-};
+if (!API_BASE_URL || typeof API_BASE_URL !== 'string' || !/^https?:\/\//.test(API_BASE_URL)) {
+  throw new Error(
+    'API_BASE_URL is missing or invalid. Check apiConfig.ts at the project root — exactly one API_BASE_URL line must be uncommented.',
+  );
+}
 
-const configured = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-const production = process.env.EXPO_PUBLIC_API_BASE_URL_PRODUCTION?.trim();
-const isProduction = process.env.NODE_ENV === 'production';
+// A local-looking URL (emulator loopback or a LAN address) is LOCAL; anything
+// else (the deployed Workers URL) is PRODUCTION. Derived, not duplicated, so
+// there is nothing else to keep in sync with apiConfig.ts.
+const isProduction = !/^https?:\/\/(10\.0\.2\.2|localhost|127\.0\.0\.1|192\.168\.)/i.test(API_BASE_URL);
 
-const resolveConfiguredUrl = (value: string | undefined) => {
-  if (!value || Platform.OS !== 'android' || isProduction) return value;
-  return value.replace(/^(https?:\/\/)(localhost|127\.0\.0\.1)(?=[:/]|$)/i, '$110.0.2.2');
-};
+export const env = { apiBaseUrl: API_BASE_URL, isConfigured: true, isProduction };
 
-// If explicitly configured, use that value (for physical devices, etc.)
-// Otherwise, in development, use platform-appropriate localhost
-const apiBaseUrl = isProduction
-  ? production || configured || ''
-  : resolveConfiguredUrl(configured) || getLocalhostUrl(8787);
-
-export const env = { apiBaseUrl, isConfigured: Boolean(configured || production), isProduction };
+// Safe one-time startup banner — the URL itself is not a secret (it's the
+// public API host), but never log tokens/headers/credentials here.
+if (__DEV__) {
+  console.log(`---------------------------------------\nSmashPoint API\n${isProduction ? 'PRODUCTION' : API_BASE_URL}\n---------------------------------------`);
+}

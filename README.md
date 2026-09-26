@@ -53,12 +53,61 @@ npm test
 
 ## Environment Configuration
 
-The mobile configuration reads these variable names:
+The mobile app's API base URL is set in one file: [`apiConfig.ts`](apiConfig.ts) at the project root. See [Local / Production Switching](#local--production-switching) below.
 
-- `EXPO_PUBLIC_API_BASE_URL`
-- `EXPO_PUBLIC_API_BASE_URL_PRODUCTION`
+## Local / Production Switching
 
-Development defaults to port `8787`; Android development URLs translate localhost to `10.0.2.2` for an emulator. Secret values belong in local environment configuration and must not be committed.
+Configuration file:
+
+```
+apiConfig.ts
+```
+
+This is the only file that selects which API the app talks to. Exactly one `API_BASE_URL` line must be uncommented at a time.
+
+### Local — Android Emulator
+
+Uncomment:
+
+```ts
+export const API_BASE_URL = "http://10.0.2.2:8787";
+```
+
+Comment out the Production URL.
+
+### Local — Physical Android Phone
+
+Use the documented LAN URL:
+
+```ts
+export const API_BASE_URL = "http://192.168.0.100:8787";
+```
+
+- The Mac and the phone must be on the same network.
+- The LAN IP may change when the network changes. If it does, update only this one line.
+
+### Production
+
+Comment out all LOCAL URLs. Uncomment:
+
+```ts
+export const API_BASE_URL =
+  "https://badminton-api.kannadasanb1969.workers.dev";
+```
+
+> **IMPORTANT:** Only ONE `API_BASE_URL` line must be uncommented at a time.
+
+### Quick reference
+
+```
+LOCAL:
+  Mobile → apiConfig.ts LOCAL → Local API → dbConfig.js LOCAL → Local DB
+
+PRODUCTION:
+  Mobile → apiConfig.ts PRODUCTION → Production Cloudflare Worker → dbConfig.js PRODUCTION → Production DB
+```
+
+(`dbConfig.js` lives in the backend repository — see its README for details.)
 
 ## API
 
