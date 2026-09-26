@@ -55,7 +55,7 @@ export const resolveFriendlySide = (value: any, players: any[] = [], teams: any[
     return members.map((m: any) => m.name || m.full_name || m.fullName).filter(Boolean).join(' / ') || 'TBD';
   }
   if (type === 'PLAYER' || type === '') {
-    const player = players.find((x) => String(x.id ?? x.player_id) === String(id));
+    const player = players.find((x) => String(x.player_id ?? x.id) === String(id));
     return player?.name || player?.full_name || player?.fullName || 'TBD';
   }
   return 'TBD';
