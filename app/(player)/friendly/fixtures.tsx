@@ -1,4 +1,4 @@
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, ImageBackground, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -7,6 +7,53 @@ import { ScreenContainer } from '../../../src/components/common/ScreenContainer'
 import { PrimaryButton } from '../../../src/components/common/PrimaryButton';
 import { BackButton } from '../../../src/components/common/BackButton';
 import { colors, radius, spacing } from '../../../src/theme';
+
+// Reusing the same badminton hero artwork already used on the Friendly Match list screen (a male
+// player smashing, positioned right, shuttle upper-right, left side dark) — keeps this screen
+// visually consistent with the rest of the Friendly Match feature instead of introducing a new
+// image. Same small shuttle icon already used elsewhere as a subtle in-card watermark.
+const heroBg = require('../../../assets/images/friendly-hero-bg-crop.png');
+const shuttleIcon = require('../../../assets/images/shuttle-icon.png');
+
+// Purely decorative avatar colors, cycled by name — no identity/business meaning.
+const AVATAR_PALETTE = ['#2F8F52', '#B6469B', '#3B7FC4', '#C48A2F', '#7A5FD1', '#2FA39A'];
+const avatarColorFor = (name: string) => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+};
+// A minimal person-silhouette built from plain Views (head + shoulders), so this stays scoped to
+// this one file instead of touching the shared TournamentIcon component (used across many other
+// screens) just to add a colorable variant.
+function PersonGlyph({ color }: { color: string }) {
+  return (
+    <View style={s.personGlyph}>
+      <View style={[s.personHead, { backgroundColor: color }]} />
+      <View style={[s.personBody, { backgroundColor: color }]} />
+    </View>
+  );
+}
+function Avatar({ name }: { name: string }) {
+  const isBye = name === 'BYE';
+  return (
+    <View style={[s.avatar, { backgroundColor: isBye ? '#3A4A46' : avatarColorFor(name) }]}>
+      <PersonGlyph color="rgba(255,255,255,0.92)" />
+    </View>
+  );
+}
+function StatusPill({ status, resolvedBye }: { status: string; resolvedBye: boolean }) {
+  const isLive = status === 'LIVE' || status === 'IN_PROGRESS';
+  const isDone = status === 'COMPLETED';
+  return (
+    <View style={[s.statusPill, isDone && s.statusPillDone, isLive && s.statusPillLive]}>
+      {isDone && <Text style={s.statusPillTextDone}>✓</Text>}
+      {isLive && <View style={s.liveDot} />}
+      <Text style={[s.statusPillText, isDone && s.statusPillTextDone, isLive && s.statusPillTextLive]}>
+        {resolvedBye ? 'COMPLETED' : label(status)}
+      </Text>
+    </View>
+  );
+}
 import {
   friendlyApi,
   friendlyKeys,
@@ -145,7 +192,13 @@ export default function Fixtures() {
   return (
     <ScreenContainer dark>
       <ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl tintColor={colors.lime} refreshing={query.isFetching} onRefresh={refresh} />}>
-        <Header
+        <Hero
+          title={detail.data?.title || 'Fixtures'}
+          subtitle={`${detail.data?.event_type || 'MATCH'} · ${detail.data?.format || ''}`}
+          playerCount={playerCount}
+          maxPlayers={maxPlayers}
+          status={status}
+          hasDetail={!!detail.data}
           onBack={() => router.back()}
           onMenu={() =>
             owner
@@ -156,18 +209,6 @@ export default function Fixtures() {
               : undefined
           }
         />
-        <Text style={s.title}>{detail.data?.title || 'Fixtures'}</Text>
-        <Text style={s.meta}>
-          {detail.data?.event_type || 'MATCH'} · {detail.data?.format || ''}
-        </Text>
-        {!!detail.data && (
-          <View style={s.summaryPill}>
-            <Text style={s.summaryPillText}>
-              {playerCount}/{maxPlayers} players ·{' '}
-            </Text>
-            <Text style={[s.summaryPillText, s.summaryPillStrong]}>{status || 'OPEN'}</Text>
-          </View>
-        )}
         <View style={s.tabs}>
           <Tab active={tab === 'FIXTURES'} title="Fixtures" onPress={() => setTab('FIXTURES')} />
           <Tab active={tab === 'MATCHES'} title="Matches" onPress={() => setTab('MATCHES')} />
@@ -266,25 +307,32 @@ export default function Fixtures() {
 
         {!!data.length && tab === 'MATCHES' && (
           <>
-            <View style={s.filters}>
-              {(['ALL', 'LIVE', 'UPCOMING', 'COMPLETED'] as Filter[]).map((x) => (
-                <Pressable key={x} onPress={() => setFilter(x)} style={[s.filter, filter === x && s.filterActive]}>
-                  <Text style={[s.filterText, filter === x && s.filterTextActive]}>
-                    {x === 'ALL'
-                      ? `ALL (${data.length})`
-                      : `${x} (${
-                          data.filter((m) =>
-                            x === 'LIVE'
-                              ? statusOf(m) === 'LIVE' || statusOf(m) === 'IN_PROGRESS'
-                              : x === 'UPCOMING'
-                                ? statusOf(m) === 'SCHEDULED'
-                                : statusOf(m) === x,
-                          ).length
-                        })`}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters}>
+              {(['ALL', 'LIVE', 'UPCOMING', 'COMPLETED'] as Filter[]).map((x) => {
+                const active = filter === x;
+                const icon = x === 'LIVE' ? '●' : x === 'UPCOMING' ? '◷' : x === 'COMPLETED' ? '✓' : null;
+                return (
+                  <Pressable key={x} onPress={() => setFilter(x)} style={[s.filter, active && s.filterActive]}>
+                    {icon && (
+                      <Text style={[s.filterIcon, x === 'LIVE' && s.filterIconLive, active && s.filterIconActive]}>{icon}</Text>
+                    )}
+                    <Text style={[s.filterText, active && s.filterTextActive]}>
+                      {x === 'ALL'
+                        ? `All (${data.length})`
+                        : `${x[0]}${x.slice(1).toLowerCase()} (${
+                            data.filter((m) =>
+                              x === 'LIVE'
+                                ? statusOf(m) === 'LIVE' || statusOf(m) === 'IN_PROGRESS'
+                                : x === 'UPCOMING'
+                                  ? statusOf(m) === 'SCHEDULED'
+                                  : statusOf(m) === x,
+                            ).length
+                          })`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
             {data
               .filter(
                 (m) =>
@@ -393,6 +441,12 @@ export default function Fixtures() {
     const b = side(match, 2);
     const scoreA = match.participant1Score ?? match.participant1_score ?? match.scoreA;
     const scoreB = match.participant2Score ?? match.participant2_score ?? match.scoreB;
+    // Owner-only + raw SCHEDULED (excludes LIVE/IN_PROGRESS/COMPLETED, including BYE-auto-completed
+    // matches, which are persisted as COMPLETED) + playable() (both sides resolved to real names,
+    // neither TBD, not a BYE slot) — reuses the same helpers/condition already gating whether the
+    // card itself is tappable, so this can never show for a state the card wouldn't also open.
+    const canStart = owner && status === 'SCHEDULED' && playable(match);
+    const resolvedBye = isResolvedBye(match);
     return (
       <Pressable
         accessibilityLabel={`${formatRound(String(roundOf(match)), 0, 1)} Match ${matchNo(match, index)}, ${label(status)}`}
@@ -400,24 +454,41 @@ export default function Fixtures() {
         onPress={onPress}
         style={[s.matchCard, focused && s.focused]}
       >
+        <Image source={shuttleIcon} style={s.cardWatermark} resizeMode="contain" />
         <View style={s.matchTop}>
-          <Text style={s.round}>
-            {formatRound(String(roundOf(match)), 0, 1)} · Match {matchNo(match, index)}
-          </Text>
-          <Text style={[s.badge, status === 'COMPLETED' && s.done, (status === 'LIVE' || status === 'IN_PROGRESS') && s.live, status === 'BYE' && s.bye]}>
-            {isResolvedBye(match) ? '✓ Advanced / BYE' : status === 'LIVE' || status === 'IN_PROGRESS' ? '● LIVE' : label(status)}
-          </Text>
+          <View style={s.matchTopLeft}>
+            <Text style={s.trophyGlyph}>🏆</Text>
+            <Text style={s.round}>
+              {formatRound(String(roundOf(match)), 0, 1)} · Match {matchNo(match, index)}
+            </Text>
+          </View>
+          <StatusPill status={status} resolvedBye={resolvedBye} />
         </View>
         <View style={s.scoreRow}>
-          <Text style={[s.matchSide, (disabled || a === 'BYE') && s.tbd]}>{a}</Text>
-          {scoreA != null && <Text style={s.score}>{scoreA}</Text>}
+          <Avatar name={a} />
+          <Text style={[s.matchSide, (disabled || a === 'BYE') && s.tbd]} numberOfLines={1}>{a}</Text>
+          {scoreA != null && (
+            <View style={s.scoreBox}>
+              <Text style={s.score}>{scoreA}</Text>
+            </View>
+          )}
         </View>
-        <Text style={s.vs}>VS</Text>
+        <Text style={s.vs}>vs</Text>
         <View style={s.scoreRow}>
-          <Text style={[s.matchSide, (disabled || b === 'BYE') && s.tbd]}>{b}</Text>
-          {scoreB != null && <Text style={s.score}>{scoreB}</Text>}
+          <Avatar name={b} />
+          <Text style={[s.matchSide, (disabled || b === 'BYE') && s.tbd]} numberOfLines={1}>{b}</Text>
+          {scoreB != null && (
+            <View style={s.scoreBox}>
+              <Text style={s.score}>{scoreB}</Text>
+            </View>
+          )}
         </View>
-        <Text style={s.chevron}>›</Text>
+        {canStart && (
+          <Pressable accessibilityLabel="Start Match" onPress={onPress} style={s.startButton}>
+            <Text style={s.startButtonIcon}>▶</Text>
+            <Text style={s.startButtonText}>Start Match</Text>
+          </Pressable>
+        )}
       </Pressable>
     );
   }
@@ -429,18 +500,55 @@ function pairUp(matches: any[]): (any | null)[][] {
   return out;
 }
 
-function Header({ onBack, onMenu }: { onBack: () => void; onMenu: () => void }) {
+function Hero({
+  title,
+  subtitle,
+  playerCount,
+  maxPlayers,
+  status,
+  hasDetail,
+  onBack,
+  onMenu,
+}: {
+  title: string;
+  subtitle: string;
+  playerCount: number;
+  maxPlayers: number;
+  status: string;
+  hasDetail: boolean;
+  onBack: () => void;
+  onMenu: () => void;
+}) {
   return (
-    <View style={s.header}>
-      <BackButton variant="dark" onPress={onBack} />
-      <View style={s.brand}>
-        <Text style={s.brandName}>SMASHPOINT</Text>
-        <Text style={s.tagline}>PLAY · COMPETE · CONNECT</Text>
+    <ImageBackground source={heroBg} style={s.hero} imageStyle={s.heroImage}>
+      <View style={s.heroOverlay} />
+      <View style={s.heroTopRow}>
+        <BackButton variant="dark" onPress={onBack} />
+        <Pressable onPress={onMenu} style={s.circle}>
+          <Text style={s.dots}>⋮</Text>
+        </Pressable>
       </View>
-      <Pressable onPress={onMenu} style={s.circle}>
-        <Text style={s.dots}>⋮</Text>
-      </Pressable>
-    </View>
+      <View style={s.heroBody}>
+        <Text style={s.title} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={s.meta}>{subtitle}</Text>
+        {hasDetail && (
+          <View style={s.summaryRow}>
+            <View style={s.summaryIconWrap}>
+              <PersonGlyph color="rgba(255,255,255,0.9)" />
+            </View>
+            <Text style={s.summaryPillText}>
+              {playerCount}/{maxPlayers} players
+            </Text>
+            <View style={s.summaryDivider} />
+            <View style={s.activePill}>
+              <Text style={s.activePillText}>{status || 'OPEN'}</Text>
+            </View>
+          </View>
+        )}
+      </View>
+    </ImageBackground>
   );
 }
 function Tab({ active, title, onPress }: { active: boolean; title: string; onPress: () => void }) {
@@ -468,17 +576,21 @@ const DARK_CARD_BORDER = '#164A3C';
 const DARK_SURFACE = '#0F3A30';
 const s = StyleSheet.create({
   content: { paddingBottom: spacing.xl, gap: spacing.sm },
-  header: { minHeight: 74, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  circle: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+  hero: { minHeight: 220, borderRadius: radius.lg, overflow: 'hidden', marginBottom: spacing.sm, padding: spacing.lg, justifyContent: 'space-between' },
+  heroImage: { resizeMode: 'cover' },
+  heroOverlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(6, 26, 21, 0.62)' },
+  heroTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  circle: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   dots: { fontSize: 25, color: colors.white },
-  brand: { alignItems: 'center' },
-  brandName: { color: colors.white, fontSize: 15, fontWeight: '900', letterSpacing: 2 },
-  tagline: { color: colors.lime, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  title: { color: colors.white, fontSize: 28, fontWeight: '900', marginTop: spacing.md },
-  meta: { color: '#8FB3A6', marginBottom: spacing.sm },
-  summaryPill: { flexDirection: 'row', marginBottom: spacing.md },
-  summaryPillText: { color: '#8FB3A6', fontSize: 12, fontWeight: '700' },
-  summaryPillStrong: { color: colors.lime, fontWeight: '900' },
+  heroBody: { marginTop: spacing.lg },
+  title: { color: colors.white, fontSize: 28, fontWeight: '900' },
+  meta: { color: '#C7E4D8', marginTop: 2, fontWeight: '700' },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md },
+  summaryIconWrap: { width: 20, height: 20, alignItems: 'center', justifyContent: 'center' },
+  summaryPillText: { color: '#DCEFE7', fontSize: 12, fontWeight: '700' },
+  summaryDivider: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#DCEFE7', marginHorizontal: 2 },
+  activePill: { backgroundColor: colors.lime, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 3 },
+  activePillText: { color: colors.primaryDark, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
   muted: { color: '#8FB3A6', lineHeight: 20 },
   state: { backgroundColor: DARK_CARD, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: DARK_CARD_BORDER },
   errorCard: { backgroundColor: DARK_CARD, borderRadius: radius.md, padding: spacing.lg, borderWidth: 1, borderColor: '#7A3B3B', gap: spacing.sm },
@@ -529,20 +641,57 @@ const s = StyleSheet.create({
   roundRowTop: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   roundRowMatch: { color: colors.white, fontWeight: '900', fontSize: 12 },
   roundRowText: { color: '#D7E7E0', fontWeight: '700' },
-  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.sm },
-  filter: { backgroundColor: DARK_SURFACE, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
+  filters: { flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.sm, paddingRight: spacing.md },
+  filter: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: DARK_SURFACE, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
   filterActive: { backgroundColor: colors.lime },
+  filterIcon: { color: '#8FB3A6', fontSize: 10, fontWeight: '900' },
+  filterIconLive: { color: '#F49B98' },
+  filterIconActive: { color: colors.primaryDark },
   filterText: { color: '#8FB3A6', fontSize: 11, fontWeight: '900' },
   filterTextActive: { color: colors.primaryDark },
-  matchCard: { backgroundColor: DARK_CARD, borderRadius: radius.md, borderWidth: 1, borderColor: DARK_CARD_BORDER, padding: spacing.md },
+  matchCard: { backgroundColor: DARK_CARD, borderRadius: radius.lg, borderWidth: 1, borderColor: DARK_CARD_BORDER, padding: spacing.lg, gap: 2, overflow: 'hidden' },
   focused: { borderColor: colors.lime, borderWidth: 2 },
-  matchTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  round: { color: colors.white, fontWeight: '900' },
-  scoreRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm },
-  matchSide: { color: '#D7E7E0', fontWeight: '800', flex: 1 },
+  cardWatermark: { position: 'absolute', right: -14, top: -10, width: 96, height: 96, opacity: 0.06, tintColor: colors.lime },
+  matchTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  matchTopLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  trophyGlyph: { fontSize: 13 },
+  round: { color: colors.white, fontWeight: '900', fontSize: 15 },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 10 },
+  avatar: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
+  personGlyph: { width: 16, height: 16, alignItems: 'center' },
+  personHead: { width: 7, height: 7, borderRadius: 4, marginBottom: 1 },
+  personBody: { width: 12, height: 7, borderTopLeftRadius: 6, borderTopRightRadius: 6 },
+  matchSide: { color: colors.white, fontWeight: '800', fontSize: 15, flex: 1 },
+  startButton: {
+    marginTop: spacing.md,
+    backgroundColor: colors.lime,
+    borderRadius: radius.lg,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  startButtonIcon: { color: colors.primaryDark, fontSize: 13 },
+  startButtonText: { color: colors.primaryDark, fontWeight: '900', fontSize: 15 },
   tbd: { color: '#8FB3A6' },
-  score: { color: colors.white, fontSize: 20, fontWeight: '900' },
-  chevron: { color: colors.lime, fontSize: 28, position: 'absolute', right: spacing.md, bottom: spacing.md },
+  scoreBox: { backgroundColor: DARK_SURFACE, borderRadius: radius.sm, minWidth: 30, paddingHorizontal: 8, paddingVertical: 3, alignItems: 'center' },
+  score: { color: colors.white, fontSize: 16, fontWeight: '900' },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  statusPillText: { color: '#8FB3A6', fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
+  statusPillDone: { backgroundColor: colors.lime },
+  statusPillTextDone: { color: colors.primaryDark },
+  statusPillLive: { backgroundColor: 'rgba(244, 155, 152, 0.16)' },
+  statusPillTextLive: { color: '#F49B98' },
+  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#F49B98' },
   championBanner: {
     flexDirection: 'row',
     alignItems: 'center',

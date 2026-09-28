@@ -12,10 +12,14 @@ export const isWorkflowConflict = (error: unknown) => {
   const status = (error as { status?: number })?.status;
   const message = String((error as { message?: string })?.message || '').toLowerCase();
   return (
-    [400, 403, 409].includes(status || 0) ||
+    // 404 covers the organizer deleting their pre-approval tournament while an admin has it open —
+    // same "the record changed under you" recovery (refetch/invalidate) applies as for a status
+    // conflict; the backend never recreates anything, it just reports the tournament is gone.
+    [400, 403, 404, 409].includes(status || 0) ||
     message.includes('status transition') ||
     message.includes('already approved') ||
-    message.includes('already rejected')
+    message.includes('already rejected') ||
+    message.includes('not found')
   );
 };
 export const canSubmitDecision = (pending: boolean) => !pending;

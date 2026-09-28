@@ -10,6 +10,7 @@ import {
   getTournamentDisplayStatus,
   tournamentStatusLabel,
 } from '../../src/features/organizer/status';
+import { getContentAvailability } from '../../src/features/availability/contentAvailability';
 
 const isCompletedTournament = (x: any) =>
   x.completionStatus === 'COMPLETED' || x.status === 'COMPLETED';
@@ -171,7 +172,8 @@ export default function Organizer() {
             const progress = getTournamentDisplayStatus(x);
             const completed = isCompletedTournament(x);
             const categories = Array.isArray(x.categories) ? x.categories : [];
-            const hasResults = completed && categories.some((c: any) => c?.result);
+            const availability = getContentAvailability({ results: categories.map((c: any) => c?.result).filter(Boolean) });
+            const hasResults = completed && availability.canViewResults;
             const goToDetails = () =>
               router.push({ pathname: '/(organizer)/tournament', params: { id: x.id } });
             const goToResults = () =>
@@ -195,11 +197,13 @@ export default function Organizer() {
                   <Text style={s.view}>View tournament ›</Text>
                 </View>
                 {hasResults && <TournamentResults categories={categories} />}
-                {hasResults && (
+                {completed && (
                   <View style={s.cardActions}>
                     <Pressable
-                      style={[s.cardActionButton, s.cardActionButtonLeft]}
-                      onPress={goToResults}
+                      accessibilityState={{ disabled: !availability.canViewResults }}
+                      disabled={!availability.canViewResults}
+                      style={[s.cardActionButton, s.cardActionButtonLeft, !availability.canViewResults && { opacity: 0.45 }]}
+                      onPress={() => { if (availability.canViewResults) goToResults(); }}
                     >
                       <Text style={s.cardActionText}>📊 View results</Text>
                     </Pressable>

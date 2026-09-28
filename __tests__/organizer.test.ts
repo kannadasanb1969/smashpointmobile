@@ -32,10 +32,14 @@ test('preserves existing IDs and strips UI keys', () => {
 test('maps organizer workflow actions', () => {
   expect(organizerActions('DRAFT')).toEqual({
     canEdit: true,
+    canDelete: true,
     canSubmit: true,
     canApprove: false,
     canReject: false,
   });
   expect(organizerActions('PUBLISHED').canEdit).toBe(false);
+  expect(organizerActions('PUBLISHED').canDelete).toBe(false);
+  expect(organizerActions('PENDING_ADMIN_APPROVAL').canEdit).toBe(true);
+  expect(organizerActions('PENDING_ADMIN_APPROVAL').canDelete).toBe(true);
   expect(organizerActions('REJECTED').canSubmit).toBe(true);
 });

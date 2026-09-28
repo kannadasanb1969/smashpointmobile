@@ -22,6 +22,10 @@ export default function Review() {
     queryKey: ['admin-tournament', id],
     queryFn: () => adminApi.detail(id as string),
     enabled: Boolean(id),
+    // Overrides the app-wide 30s staleTime default: an organizer can edit a pending tournament
+    // right up until the moment an admin approves/rejects it, so this screen must always fetch the
+    // latest persisted version rather than risk the admin reviewing a stale cached read.
+    staleTime: 0,
   });
   const mutation = useAdminDecision();
   const [reason, setReason] = useState('');

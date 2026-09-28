@@ -14,6 +14,7 @@ export const organizerApi = {
     const created = await organizerApi.create({ ...input, organizerId });
     return organizerApi.submit(created.id, organizerId);
   },
+  delete: async (id: string) => (await apiClient.delete(`/api/tournaments/${id}`)).data,
 };
 export const useOrganizerTournaments = (id: string) =>
   useQuery({
@@ -38,6 +39,20 @@ export const useOrganizerMutation = () => {
         : organizerApi.createAndSubmit(input, organizerId),
     onSuccess: () => {
       void q.invalidateQueries({ queryKey: ['organizer-tournaments'] });
+      // Distinct key (singular) used by the Tournament Details screen — without this, an edit's
+      // save doesn't refresh Details until an unrelated refetch happens to occur (e.g. a manual
+      // pull-to-refresh), since Details stays mounted across router.back() in the Expo Router stack.
+      void q.invalidateQueries({ queryKey: ['organizer-tournament'] });
+    },
+  });
+};
+export const useOrganizerDelete = () => {
+  const q = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => organizerApi.delete(id),
+    onSuccess: () => {
+      void q.invalidateQueries({ queryKey: ['organizer-tournaments'] });
+      void q.invalidateQueries({ queryKey: ['organizer-tournament'] });
     },
   });
 };

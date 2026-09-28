@@ -15,6 +15,7 @@ import { ScreenContainer } from '../../../src/components/common/ScreenContainer'
 import { PrimaryButton } from '../../../src/components/common/PrimaryButton';
 import { BackButton } from '../../../src/components/common/BackButton';
 import { colors } from '../../../src/theme';
+import { getContentAvailability } from '../../../src/features/availability/contentAvailability';
 export default function Pairing() {
   const { id } = useLocalSearchParams<{ id: string }>(),
     me = useAuthStore((s) => s.user?.playerProfile?.id) || '',
@@ -32,6 +33,7 @@ export default function Pairing() {
     }),
     [sel, setSel] = useState<string[]>([]);
   const locked = friendlyPairingLocked(f.data),
+    availability = getContentAvailability({ fixture: f.data?.fixture, fixtures: f.data?.matches || [] }),
     owner = friendlyIsOwner(d.data, me),
     mut = useMutation({
       mutationFn: (x: [string, string]) => friendlyApi.addTeam({ id, playerIds: x }),
@@ -143,8 +145,9 @@ export default function Pairing() {
           </>
         )}
         <PrimaryButton
+          disabled={!availability.canViewFixtures}
           title="View Fixtures"
-          onPress={() => router.push({ pathname: '/(player)/friendly/fixtures', params: { id } })}
+          onPress={() => { if (availability.canViewFixtures) router.push({ pathname: '/(player)/friendly/fixtures', params: { id } }); }}
         />
         <Text style={s.meta}>
           {friendlyPairingReady(d.data, p.data || [], t.data || [])

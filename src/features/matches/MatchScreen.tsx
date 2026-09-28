@@ -1,4 +1,4 @@
-import { Alert, ImageBackground, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -16,6 +16,7 @@ import { useMatchRealtime } from '../../api/realtime/useMatchRealtime';
 import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { BackButton } from '../../components/common/BackButton';
 import { TournamentIcon } from '../../components/common/TournamentIcon';
+import { SmashConfirmModal } from '../../components/common/SmashConfirmModal';
 import { colors, radius, spacing } from '../../theme';
 
 const sg = createInFlightGuard();
@@ -72,6 +73,8 @@ export default function MatchScreen() {
   const [target, setTarget] = useState<number | undefined>(
     initialTarget == null ? undefined : Number(initialTarget),
   );
+  const [startModalVisible, setStartModalVisible] = useState(false);
+  const [completeModalVisible, setCompleteModalVisible] = useState(false);
   useEffect(() => {
     if (match) {
       const value =
@@ -124,6 +127,8 @@ export default function MatchScreen() {
       await refetch();
       if (friendly) {
         await queryClient.invalidateQueries({ queryKey: ['friendly-match-fixtures', friendlyId] });
+        await queryClient.invalidateQueries({ queryKey: ['friendly-match-result', friendlyId] });
+        await queryClient.invalidateQueries({ queryKey: ['friendly-match-standings', friendlyId] });
         router.replace({ pathname: '/(player)/friendly/fixtures', params: { id: friendlyId! } });
       }
     },
@@ -160,10 +165,16 @@ export default function MatchScreen() {
       : scoringActions({ authorized: owner, status, scoreA: a, scoreB: b, target });
   const begin = () => {
     if (!actions.canStart || target == null || start.isPending || !cg.tryStart()) return;
-    Alert.alert('Start Match?', 'Begin this match.', [
-      { text: 'Cancel', onPress: () => cg.release() },
-      { text: 'Start', onPress: () => start.mutate(undefined, { onSettled: () => cg.release() }) },
-    ]);
+    setStartModalVisible(true);
+  };
+  const cancelStart = () => {
+    if (start.isPending) return;
+    setStartModalVisible(false);
+    cg.release();
+  };
+  const confirmStart = () => {
+    if (start.isPending) return;
+    start.mutate(undefined, { onSettled: () => { cg.release(); setStartModalVisible(false); } });
   };
   const change = (side: 'A' | 'B', action: 'INCREMENT' | 'DECREMENT') => {
     const allowed = action === 'DECREMENT' ? actions.canDecrement(side) : actions.canIncrement;
@@ -172,13 +183,16 @@ export default function MatchScreen() {
   };
   const finish = () => {
     if (!actions.canComplete || complete.isPending || !xg.tryStart()) return;
-    Alert.alert('Complete Match?', `Confirm ${a}-${b}.`, [
-      { text: 'Cancel', onPress: () => xg.release() },
-      {
-        text: 'Complete',
-        onPress: () => complete.mutate(undefined, { onSettled: () => xg.release() }),
-      },
-    ]);
+    setCompleteModalVisible(true);
+  };
+  const cancelComplete = () => {
+    if (complete.isPending) return;
+    setCompleteModalVisible(false);
+    xg.release();
+  };
+  const confirmComplete = () => {
+    if (complete.isPending) return;
+    complete.mutate(undefined, { onSettled: () => { xg.release(); setCompleteModalVisible(false); } });
   };
   return (
     <ScreenContainer dark>
@@ -259,7 +273,7 @@ export default function MatchScreen() {
                 match.team1Code
               }
               score={a}
-              live={actions.canIncrement}
+              live={status === 'LIVE'}
               onMinus={() => change('A', 'DECREMENT')}
               onPlus={() => change('A', 'INCREMENT')}
               disabled={false}
@@ -285,7 +299,7 @@ export default function MatchScreen() {
                 match.team2Code
               }
               score={b}
-              live={actions.canIncrement}
+              live={status === 'LIVE'}
               onMinus={() => change('B', 'DECREMENT')}
               onPlus={() => change('B', 'INCREMENT')}
               disabled={false}
@@ -359,6 +373,30 @@ export default function MatchScreen() {
           )}
         </View>
       </ScrollView>
+      <SmashConfirmModal
+        visible={startModalVisible}
+        title="Start Match?"
+        message="Begin this match."
+        icon="play"
+        confirmText="Start Match"
+        cancelText="Cancel"
+        variant="primary"
+        loading={start.isPending}
+        onConfirm={confirmStart}
+        onCancel={cancelStart}
+      />
+      <SmashConfirmModal
+        visible={completeModalVisible}
+        title="Complete Match?"
+        message={`Confirm ${a}-${b}.`}
+        icon="check"
+        confirmText="Complete Match"
+        cancelText="Cancel"
+        variant="primary"
+        loading={complete.isPending}
+        onConfirm={confirmComplete}
+        onCancel={cancelComplete}
+      />
     </ScreenContainer>
   );
 }
