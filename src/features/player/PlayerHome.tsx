@@ -4,10 +4,11 @@ import { ScreenContainer } from '../../components/common/ScreenContainer';
 import { BottomNav } from '../../components/common/BottomNav';
 import { useAuthStore } from '../../store/authStore';
 import { useNotifications } from './notifications';
-import { useRegistrations, useTournaments, useProfile } from './api';
+import { useActiveRegistrations, useRegistrations, useTournaments, useProfile } from './api';
 import { colors, radius, spacing } from '../../theme';
 import { GlobalUserMenu } from '../../components/common/GlobalUserMenu';
 import { TournamentIcon } from '../../components/common/TournamentIcon';
+import { registrationFeeLabel } from '../organizer/prize';
 
 const heroBg = require('../../../assets/images/login-badminton-bg.png');
 const activeEntriesBg = require('../../../assets/images/image2.png');
@@ -15,13 +16,13 @@ const openEventsBg = require('../../../assets/images/image9.png');
 const findPlayersBg = require('../../../assets/images/image4.png');
 const newAlertsBg = require('../../../assets/images/image8.png');
 const tournamentsBg = require('../../../assets/images/image5.png');
-const registrationsBg = require('../../../assets/images/image7.png');
 
 export default function PlayerHome() {
   const user = useAuthStore((s) => s.user);
   const profileId = user?.playerProfile?.id || '';
   const tournaments = useTournaments({ status: 'PUBLISHED' });
   const registrations = useRegistrations(profileId);
+  const activeRegistrations = useActiveRegistrations(profileId);
   const notifications = useNotifications(user?.id || '');
   const profile = useProfile(profileId);
   const name = profile.data?.fullName || user?.name || user?.fullName || 'Player';
@@ -66,8 +67,9 @@ export default function PlayerHome() {
             bg={activeEntriesBg}
             tint={styles.tintGreen}
             icon="shuttle"
-            value={String(regs.length)}
+            value={String(activeRegistrations.data?.length || 0)}
             label="Active entries"
+            onPress={() => router.push({ pathname: '/(player)/registrations', params: { filter: 'active' } })}
           />
           <Stat
             bg={openEventsBg}
@@ -79,10 +81,10 @@ export default function PlayerHome() {
           <Stat
             bg={findPlayersBg}
             tint={styles.tintGold}
-            icon="people"
-            value="→"
-            label="Find players"
-            onPress={() => router.push('/(player)/players')}
+            icon="document"
+            value={String(regs.length)}
+            label="My Entries"
+            onPress={() => router.push({ pathname: '/(player)/registrations', params: { filter: 'all' } })}
           />
           <Stat
             bg={newAlertsBg}
@@ -112,28 +114,6 @@ export default function PlayerHome() {
             <Text style={styles.emptySub}>New events will appear here. Stay tuned!</Text>
           </ImageBackground>
         )}
-        <Section
-          eyebrow="YOUR TOURNAMENT JOURNEY"
-          title="My Registrations"
-          onPress={() => router.push('/(player)/registrations')}
-        />
-        <ImageBackground source={registrationsBg} style={styles.registration} imageStyle={styles.registrationImage}>
-          <View style={styles.registrationOverlay} pointerEvents="none" />
-          {registrations.isLoading ? (
-            <Text style={styles.muted}>Loading registrations…</Text>
-          ) : regs.length ? (
-            <Text style={styles.regText}>
-              {regs.length} confirmed registration{regs.length === 1 ? '' : 's'} · View your entries
-              →
-            </Text>
-          ) : (
-            <>
-              <TournamentIcon name="document" size={24} />
-              <Text style={styles.regTitle}>Your confirmed entries will show here.</Text>
-              <Text style={styles.regSub}>Register for tournaments and start your journey!</Text>
-            </>
-          )}
-        </ImageBackground>
       </ScrollView>
       <BottomNav active="Home" />
     </ScreenContainer>
@@ -201,6 +181,21 @@ function TournamentCard({
   const d = dateParts(item.startDate || item.tournamentDate);
   const status = (item.registrationPhase || item.status || '').toString().toUpperCase();
   const open = status.includes('OPEN') || status === 'PUBLISHED';
+  const venue = item.venue || item.venueName || item.location || 'Venue TBC';
+  const fee = registrationFeeLabel(item);
+  // Replaces a generic category count with the actual event type(s) (e.g. "Singles", or
+  // "Singles & Doubles" for a tournament that runs both), read from the same category rows
+  // already returned by the tournaments list — no extra fetch.
+  const eventTypes: string[] = Array.from(
+    new Set(
+      (item.categories || [])
+        .map((c: any) => String(c.eventType || c.event_type || '').toUpperCase())
+        .filter(Boolean) as string[],
+    ),
+  );
+  const eventTypeLabel = eventTypes.length
+    ? eventTypes.map((t) => t.charAt(0) + t.slice(1).toLowerCase()).join(' & ')
+    : 'Event';
   return (
     <Pressable
       onPress={() => router.push(`/(player)/tournament/${item.id}`)}
@@ -211,16 +206,42 @@ function TournamentCard({
         <Text style={styles.month}>{d.month}</Text>
       </View>
       <View style={styles.tournamentInfo}>
-        <Text style={[styles.badge, open && styles.badgeOpen]}>
-          {open ? 'OPEN REGISTRATION' : status || 'UPCOMING'}
-        </Text>
+        <View style={styles.statusRow}>
+          <View style={[styles.statusOutlinePill, open && styles.statusOutlinePillOpen]}>
+            <Text style={[styles.badge, open && styles.badgeOpen]}>
+              {open ? 'OPEN REGISTRATION' : status || 'UPCOMING'}
+            </Text>
+          </View>
+          {open && (
+            <View style={styles.statusFilledPill}>
+              <Text style={styles.statusFilledPillText}>OPEN</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.tName} numberOfLines={1}>
           {item.name || 'Tournament'}
         </Text>
         <Text style={styles.meta}>
-          {item.venue || item.venueName || item.location || 'Venue TBC'} ·{' '}
-          {(item.categories || []).length || 0} Categories
+          {venue} · {eventTypeLabel}
         </Text>
+        <View style={styles.feeRow}>
+          <View style={styles.locationChip}>
+            <View style={styles.locationIconBox}>
+              <TournamentIcon name="location" size={12} />
+            </View>
+            <Text style={styles.locationText} numberOfLines={1}>
+              {venue}
+            </Text>
+          </View>
+          <View style={styles.feeDivider} />
+          <View style={styles.feePill}>
+            <Text style={styles.feePillRupee}>₹</Text>
+            <View>
+              <Text style={styles.feePillLabel}>Entry fee</Text>
+              <Text style={styles.feePillValue}>{fee}</Text>
+            </View>
+          </View>
+        </View>
       </View>
       <Text style={styles.chevron}>›</Text>
     </Pressable>
@@ -321,8 +342,68 @@ const styles = StyleSheet.create({
   day: { color: colors.white, fontSize: 25, fontWeight: '900' },
   month: { color: colors.lime, fontSize: 10, fontWeight: '900', marginTop: 2 },
   tournamentInfo: { flex: 1, marginLeft: 12 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusOutlinePill: {
+    borderWidth: 1,
+    borderColor: '#3A5C50',
+    borderRadius: radius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusOutlinePillOpen: { borderColor: colors.lime },
   badge: { color: '#A7B7B1', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
   badgeOpen: { color: colors.lime },
+  statusFilledPill: {
+    backgroundColor: colors.lime,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  statusFilledPillText: { color: colors.primaryDark, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  feeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  locationChip: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 },
+  locationIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: '#0D4939',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  locationText: { color: '#A7B7B1', fontSize: 11, flexShrink: 1 },
+  feeDivider: { width: 1, height: 26, backgroundColor: '#1B4C3D' },
+  feePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#06251F',
+    borderWidth: 1.5,
+    borderColor: colors.lime,
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    shadowColor: colors.lime,
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 3,
+    minWidth: 104,
+  },
+  feePillRupee: {
+    color: colors.primaryDark,
+    backgroundColor: colors.lime,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    textAlign: 'center',
+    lineHeight: 24,
+    fontSize: 14,
+    fontWeight: '900',
+    overflow: 'hidden',
+  },
+  feePillLabel: { color: '#A7B7B1', fontSize: 9, fontWeight: '700', lineHeight: 11 },
+  feePillValue: { color: '#D8FF4F', fontSize: 15, fontWeight: '900', lineHeight: 17 },
   tName: { color: colors.white, fontSize: 16, fontWeight: '800', marginTop: 7 },
   meta: { color: '#A7B7B1', fontSize: 11, marginTop: 5 },
   chevron: { color: colors.lime, fontSize: 28, marginLeft: 6 },
@@ -340,17 +421,4 @@ const styles = StyleSheet.create({
   emptyCardOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(3, 26, 22, 0.45)' },
   emptyTitle: { color: colors.white, fontWeight: '800', fontSize: 15, marginTop: spacing.sm, textAlign: 'center' },
   emptySub: { color: '#D7E7E0', fontSize: 12, marginTop: 4, textAlign: 'center' },
-  registration: {
-    minHeight: 150,
-    borderRadius: radius.md,
-    overflow: 'hidden',
-    padding: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  registrationImage: { borderRadius: radius.md },
-  registrationOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(3, 26, 22, 0.45)' },
-  regText: { color: colors.white, fontWeight: '700' },
-  regTitle: { color: colors.white, fontWeight: '800', fontSize: 15, marginTop: spacing.sm, textAlign: 'center' },
-  regSub: { color: '#D7E7E0', fontSize: 12, marginTop: 4, textAlign: 'center' },
 });

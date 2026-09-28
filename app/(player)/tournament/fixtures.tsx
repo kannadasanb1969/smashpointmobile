@@ -67,7 +67,7 @@ const sideId = (side: any) =>
           'participant_id',
         ) || '',
   );
-const sideNames = (side: any, players: any[] = []): string[] => {
+const sideNames = (side: any, players: any[] = [], fixtureParticipants: any[] = []): string[] => {
   if (side == null || side === '') return ['TBD'];
   const names = participantNames(side);
   if (names.length && !/^[0-9a-f-]{20,}$/i.test(names[0])) return names;
@@ -75,6 +75,19 @@ const sideNames = (side: any, players: any[] = []): string[] => {
     typeof side === 'string' || typeof side === 'number'
       ? String(side)
       : String(side?.id || side?.playerId || side?.teamId || '');
+  // `side` here is frequently just a raw participant1Id/participant2Id string from the match row
+  // (a TEAM id for doubles, a PLAYER id for singles) — the `players` list is only individual
+  // player profiles, so a TEAM id never matches it. The fixture's own `participants` array
+  // (fixture_participants, generated alongside the bracket) already resolves every participant
+  // id to a displayName/displayCode regardless of type — check that first.
+  const fixtureParticipant = fixtureParticipants.find(
+    (item) => String(item?.participantId ?? item?.participant_id) === id,
+  );
+  if (fixtureParticipant) {
+    const label = fixtureParticipant.displayName || fixtureParticipant.display_name ||
+      fixtureParticipant.displayCode || fixtureParticipant.display_code;
+    if (label) return [String(label)];
+  }
   const player = players.find(
     (item) => String(item?.id ?? item?.playerId ?? item?.player_id) === id,
   );
@@ -150,6 +163,7 @@ export default function PlayerFixtures() {
   const params = useLocalSearchParams<{
     tournamentId?: string | string[];
     categoryId?: string | string[];
+    view?: string | string[];
   }>();
   const tournamentId = String(
     Array.isArray(params.tournamentId) ? params.tournamentId[0] || '' : params.tournamentId || '',
@@ -157,6 +171,7 @@ export default function PlayerFixtures() {
   const categoryId = String(
     Array.isArray(params.categoryId) ? params.categoryId[0] || '' : params.categoryId || '',
   );
+  const requestedView = String(Array.isArray(params.view) ? params.view[0] || '' : params.view || '').toUpperCase();
   const tournament = useTournament(tournamentId);
   const players = usePlayers();
   const query = useQuery({
@@ -168,7 +183,13 @@ export default function PlayerFixtures() {
     ? query.data
     : query.data?.fixtures || query.data?.data || query.data?.items || [];
   const fixtures = visibleFixtures(normalizeFixtureResponse(raw), categoryId) as any[];
-  const [tab, setTab] = useState<'BRACKET' | 'MATCHES'>('BRACKET');
+  // `query.data` is the raw array from GET /api/fixtures (one row per fixture, usually one per
+  // category) — not a single fixture object, so `.participants` must come from the row itself,
+  // matching how `raw[0]` is already used above for title/categoryName fallbacks.
+  const fixtureParticipants = Array.isArray(raw[0]?.participants) ? raw[0].participants : [];
+  const [tab, setTab] = useState<'BRACKET' | 'MATCHES' | 'RESULTS'>(
+    requestedView === 'MATCHES' ? 'MATCHES' : requestedView === 'RESULTS' ? 'RESULTS' : 'BRACKET',
+  );
   const category = tournament.data?.categories?.find((item: any) => String(item.id) === categoryId);
   const final = findFinalFixture(fixtures);
   const winner = getFixtureWinner(final, players.data || []);
@@ -229,6 +250,9 @@ export default function PlayerFixtures() {
           <Text onPress={() => setTab('MATCHES')} style={[s.tab, tab === 'MATCHES' && s.tabActive]}>
             Matches
           </Text>
+          <Text onPress={() => setTab('RESULTS')} style={[s.tab, tab === 'RESULTS' && s.tabActive]}>
+            Results
+          </Text>
         </View>
         {query.isLoading || tournament.isLoading ? (
           <View style={s.loading}>
@@ -279,13 +303,14 @@ export default function PlayerFixtures() {
                         fixture={fixture}
                         index={index}
                         players={players.data || []}
+                        fixtureParticipants={fixtureParticipants}
                         lastRound={groupIndex === groupFixtures(fixtures).length - 1}
                       />
                     ))}
                   </View>
                 ))}
               </ScrollView>
-            ) : (
+            ) : tab === 'MATCHES' ? (
               groupFixtures(fixtures).map((group) => (
                 <View key={group.round}>
                   <Text style={s.round}>🏆 {readableRound(group.round)}</Text>
@@ -295,10 +320,26 @@ export default function PlayerFixtures() {
                       fixture={fixture}
                       index={index}
                       players={players.data || []}
+                      fixtureParticipants={fixtureParticipants}
                     />
                   ))}
                 </View>
               ))
+            ) : (
+              <View>
+                <Text style={s.round}>Completed matches</Text>
+                {groupFixtures(fixtures.filter((fixture) => matchStatus(fixture) === 'COMPLETED')).map((group) => (
+                  <View key={group.round}>
+                    <Text style={s.round}>{readableRound(group.round)}</Text>
+                    {group.fixtures.map((fixture: any, index: number) => (
+                      <Match key={fixture.id || index} fixture={fixture} index={index} players={players.data || []} fixtureParticipants={fixtureParticipants} />
+                    ))}
+                  </View>
+                ))}
+                {!fixtures.some((fixture) => matchStatus(fixture) === 'COMPLETED') && (
+                  <Text style={s.muted}>No completed matches yet.</Text>
+                )}
+              </View>
             )}
           </>
         )}
@@ -324,14 +365,24 @@ function Podium({ label, names, gold }: { label: string; names: string[]; gold?:
   );
 }
 
-function Match({ fixture, index, players }: { fixture: any; index: number; players: any[] }) {
+function Match({
+  fixture,
+  index,
+  players,
+  fixtureParticipants = [],
+}: {
+  fixture: any;
+  index: number;
+  players: any[];
+  fixtureParticipants?: any[];
+}) {
   const status = matchStatus(fixture),
     bye =
       status === 'BYE' ||
-      sideNames(sideValue(fixture, 1), players).includes('BYE') ||
-      sideNames(sideValue(fixture, 2), players).includes('BYE');
-  const first = sideNames(sideValue(fixture, 1), players),
-    second = sideNames(sideValue(fixture, 2), players),
+      sideNames(sideValue(fixture, 1), players, fixtureParticipants).includes('BYE') ||
+      sideNames(sideValue(fixture, 2), players, fixtureParticipants).includes('BYE');
+  const first = sideNames(sideValue(fixture, 1), players, fixtureParticipants),
+    second = sideNames(sideValue(fixture, 2), players, fixtureParticipants),
     winnerSide = fixtureWinnerSide(fixture);
   const id =
     value(fixture, 'shortId', 'matchCode', 'match_code') ||
@@ -397,16 +448,18 @@ function BracketMatch({
   fixture,
   index,
   players,
+  fixtureParticipants = [],
   lastRound,
 }: {
   fixture: any;
   index: number;
   players: any[];
+  fixtureParticipants?: any[];
   lastRound: boolean;
 }) {
   const status = matchStatus(fixture);
-  const first = sideNames(sideValue(fixture, 1), players).join(' / ');
-  const second = sideNames(sideValue(fixture, 2), players).join(' / ');
+  const first = sideNames(sideValue(fixture, 1), players, fixtureParticipants).join(' / ');
+  const second = sideNames(sideValue(fixture, 2), players, fixtureParticipants).join(' / ');
   const matchCode =
     value(fixture, 'shortId', 'matchCode', 'match_code') ||
     value(fixture, 'matchNumber', 'match_number', 'matchOrder', 'match_order') ||

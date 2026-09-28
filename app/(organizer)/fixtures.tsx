@@ -13,6 +13,8 @@ import {
   computeStandings,
 } from '../../src/features/organizer/fixtureHelpers';
 import { MatchCard } from '../../src/components/organizer/MatchCard';
+import { BracketView } from '../../src/components/organizer/BracketView';
+import { MatchesTabView } from '../../src/components/organizer/MatchesTabView';
 import { useTournament } from '../../src/features/player/api';
 import { useAuthStore } from '../../src/store/authStore';
 import { colors, radius, shadows, spacing } from '../../src/theme';
@@ -97,21 +99,39 @@ export default function Fixtures() {
         me,
       ),
     onSuccess: () =>
-      Promise.all([query.refetch(), client.invalidateQueries({ queryKey })]),
+      Promise.all([
+        query.refetch(),
+        client.invalidateQueries({ queryKey }),
+        client.invalidateQueries({ queryKey: ['tournament', String(id)] }),
+        client.invalidateQueries({ queryKey: ['tournaments'] }),
+        client.invalidateQueries({ queryKey: ['player-fixtures', String(id)] }),
+      ]),
     onError: (e: any) =>
       Alert.alert('Unable to generate fixture', e?.message || 'Please try again.'),
   });
   const publish = useMutation({
     mutationFn: () => ops.publishFixture(String(draftFixture?.id)),
     onSuccess: () =>
-      Promise.all([query.refetch(), client.invalidateQueries({ queryKey })]),
+      Promise.all([
+        query.refetch(),
+        client.invalidateQueries({ queryKey }),
+        client.invalidateQueries({ queryKey: ['tournament', String(id)] }),
+        client.invalidateQueries({ queryKey: ['tournaments'] }),
+        client.invalidateQueries({ queryKey: ['player-fixtures', String(id)] }),
+      ]),
     onError: (e: any) =>
       Alert.alert('Unable to publish fixture', e?.message || 'Please try again.'),
   });
   const promote = useMutation({
     mutationFn: () => ops.promoteFixture(String(activeFixture?.id)),
     onSuccess: () =>
-      Promise.all([query.refetch(), client.invalidateQueries({ queryKey })]),
+      Promise.all([
+        query.refetch(),
+        client.invalidateQueries({ queryKey }),
+        client.invalidateQueries({ queryKey: ['tournament', String(id)] }),
+        client.invalidateQueries({ queryKey: ['tournaments'] }),
+        client.invalidateQueries({ queryKey: ['player-fixtures', String(id)] }),
+      ]),
     onError: (e: any) =>
       Alert.alert('Unable to promote qualifiers', e?.message || 'Please try again.'),
   });
@@ -228,30 +248,9 @@ export default function Fixtures() {
           />
         )}
 
-        {/* KNOCKOUT: bracket view with connector lines, unchanged from before */}
+        {/* KNOCKOUT: compact Bracket flow diagram (approved design) */}
         {!isLeague && knockoutTab === 'BRACKET' && matches.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={s.bracket}>
-            {rounds.map((round: any) => (
-              <View key={round.round} style={s.roundColumn}>
-                <Text style={s.roundTitle}>{roundLabel(round.round, format)}</Text>
-                <Text style={s.roundCount}>{round.fixtures.length} matches</Text>
-                {round.fixtures.map((m: any) => (
-                  <View key={m.id} style={s.node}>
-                    <View style={s.nodeTop}>
-                      <Text style={s.code}>
-                        {m.matchCode || m.match_code || `M${m.matchNumber}`}
-                      </Text>
-                      <Text style={s.nodeStatus}>{m.status || 'SCHEDULED'}</Text>
-                    </View>
-                    <Text style={s.participant}>{matchParticipant(m, 1)}</Text>
-                    <Text style={s.vs}>VS</Text>
-                    <Text style={s.participant}>{matchParticipant(m, 2)}</Text>
-                    <View style={s.connector} />
-                  </View>
-                ))}
-              </View>
-            ))}
-          </ScrollView>
+          <BracketView rounds={rounds} format={format} onOpenMatch={openMatch} />
         )}
 
         {/* LEAGUE: Pools tab — dynamically-generated pools, never hardcoded */}
@@ -360,10 +359,15 @@ export default function Fixtures() {
               <MatchCard key={m.id} match={m} format={format} index={index} onPress={() => openMatch(String(m.id))} />
             ))
           ))}
-        {!isLeague && knockoutTab === 'MATCHES' &&
-          matches.map((m: any, index: number) => (
-            <MatchCard key={m.id} match={m} format={format} index={index} onPress={() => openMatch(String(m.id))} />
-          ))}
+        {!isLeague && knockoutTab === 'MATCHES' && (
+          <MatchesTabView
+            matches={matches}
+            participants={activeParticipants}
+            teamCount={activeParticipants.length}
+            format={format}
+            onOpenMatch={openMatch}
+          />
+        )}
 
         {/* LEAGUE: Bracket tab — appears once qualifiers are promoted; same node/connector visuals as the
             Knockout bracket, reused rather than redesigned, but scoped to only the post-promotion matches. */}

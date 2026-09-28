@@ -19,6 +19,7 @@ import { QueryState } from '../../src/components/feedback/QueryState';
 import { StatusBadge } from '../../src/components/common/StatusBadge';
 import { useResults } from '../../src/features/player/achievements';
 import { ops } from '../../src/features/organizer/operations';
+import { getTournamentLifecycle } from '../../src/features/organizer/status';
 import {
   findFinalFixture,
   getFixtureRunnerUp,
@@ -29,13 +30,7 @@ import {
 const statuses = ['OPEN', 'CLOSED', 'COMPLETED', 'ALL'] as const;
 const listStatus = (t: any) => {
   if (t.status === 'COMPLETED' || t.completionStatus === 'COMPLETED') return 'COMPLETED';
-  const close = String(t.registrationCloseDate || t.registrationEndDate || '').slice(0, 10);
-  const expired =
-    /^\d{4}-\d{2}-\d{2}$/.test(close) && new Date().toISOString().slice(0, 10) > close;
-  const open =
-    Array.isArray(t.categories) &&
-    t.categories.some((c: any) => c.registrationPhase === 'OPEN' && !c.registrationClosedAt);
-  return !expired && open ? 'OPEN' : 'CLOSED';
+  return getTournamentLifecycle(t).registrationState === 'OPEN' ? 'OPEN' : 'CLOSED';
 };
 const dateLabel = (v?: string) =>
   v

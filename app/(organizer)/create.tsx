@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
 import { BackButton } from '../../src/components/common/BackButton';
 import { TournamentIcon } from '../../src/components/common/TournamentIcon';
+import { SmashConfirmModal } from '../../src/components/common/SmashConfirmModal';
 import { useAuthStore } from '../../src/store/authStore';
 import { organizerApi, useOrganizerMutation } from '../../src/features/organizer/api';
 import { cleanCategories, type OrganizerCategory } from '../../src/features/organizer/helpers';
@@ -26,19 +27,36 @@ import { PrimaryButton } from '../../src/components/common/PrimaryButton';
 const EVENT_TYPES: OrganizerCategory['eventType'][] = ['SINGLES', 'DOUBLES'];
 const FORMATS = ['KNOCKOUT', 'LEAGUE'] as const;
 const WINNING_POINTS = ['15', '21', '30'] as const;
+const PRIZE_TYPES = ['NONE', 'TROPHY', 'CASH', 'BOTH'] as const;
+const PRIZE_TYPE_COPY: Record<(typeof PRIZE_TYPES)[number], { title: string; sub: string }> = {
+  NONE: { title: 'None', sub: 'No prize' },
+  TROPHY: { title: 'Trophy', sub: 'Cup / Medal' },
+  CASH: { title: 'Cash', sub: 'Prize money' },
+  BOTH: { title: 'Both', sub: 'Trophy + Cash' },
+};
 type FormValues = {
   name: string;
   description: string;
   tournamentDate: string;
   registrationCloseDate: string;
+  registrationCloseTime: string;
   reportingTime: string;
   venueName: string;
   venueAddress: string;
+  mapLink: string;
   format: (typeof FORMATS)[number];
   rules: string;
-  prize: string;
   shuttleType: string;
   winningPoints: string;
+  registrationFee: string;
+  prizeType: (typeof PRIZE_TYPES)[number];
+  winnerTrophyName: string;
+  runnerUpTrophyName: string;
+  winnerCashAmount: string;
+  runnerUpCashAmount: string;
+  thirdPlaceEnabled: boolean;
+  thirdPlaceTrophyName: string;
+  thirdPlaceCashAmount: string;
 };
 const blank = (): OrganizerCategory => ({
   uiKey: Math.random().toString(36),
@@ -199,23 +217,44 @@ export default function Create() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const organizerId = useAuthStore((state) => state.user?.id) || '';
   const mutation = useOrganizerMutation();
+  const authUser = useAuthStore((state) => state.user);
   const [values, setValues] = useState<FormValues>({
     name: '',
     description: '',
     tournamentDate: '',
     registrationCloseDate: '',
+    registrationCloseTime: '',
     reportingTime: '',
     venueName: '',
     venueAddress: '',
+    mapLink: '',
     format: 'KNOCKOUT',
     rules: '',
-    prize: '',
     shuttleType: '',
     winningPoints: '21',
+    registrationFee: '',
+    prizeType: 'NONE',
+    winnerTrophyName: '',
+    runnerUpTrophyName: '',
+    winnerCashAmount: '',
+    runnerUpCashAmount: '',
+    thirdPlaceEnabled: false,
+    thirdPlaceTrophyName: '',
+    thirdPlaceCashAmount: '',
   });
+  // Organizer identity shown read-only on this screen. Editing an existing tournament shows the
+  // name/mobile that were snapshotted onto it at creation time (stable even if the organizer's
+  // profile changes later); creating a new one previews the current authenticated identity, since
+  // that's exactly what the backend will snapshot on save.
+  const [organizerSnapshot, setOrganizerSnapshot] = useState<{ name: string; mobile: string } | null>(null);
+  const organizerDisplay = organizerSnapshot ?? {
+    name: authUser?.fullName || authUser?.name || 'Organizer',
+    mobile: authUser?.mobile || '',
+  };
   const [categories, setCategories] = useState<OrganizerCategory[]>([]);
   const [loading, setLoading] = useState(Boolean(id));
   const [categoryPicker, setCategoryPicker] = useState(false);
+  const [savedModalVisible, setSavedModalVisible] = useState(false);
   const [pendingCategory, setPendingCategory] = useState<OrganizerCategory['eventType']>('SINGLES');
   const set = (key: keyof FormValues, value: string) =>
     setValues((previous) => ({ ...previous, [key]: value }));
@@ -233,17 +272,30 @@ export default function Create() {
           description: x.description || '',
           tournamentDate: x.startDate || x.tournamentDate || '',
           registrationCloseDate: x.registrationEndDate || x.registrationCloseDate || '',
+          registrationCloseTime: timeValue(x.registrationCloseTime),
           reportingTime: timeValue(x.reportingTime),
           venueName: x.venue || x.venueName || '',
           venueAddress: x.location || x.venueAddress || '',
+          mapLink: x.mapLink || '',
           format: FORMATS.includes(x.format) ? x.format : 'KNOCKOUT',
           rules: Array.isArray(x.generalRules)
             ? x.generalRules.join('\n')
             : x.rules || x.tournamentRules || '',
-          prize: String(x.prizes ?? x.prize ?? x.prizeAmount ?? x.prizePool ?? ''),
           shuttleType: x.shuttle ?? x.shuttleType ?? '',
           winningPoints: String(x.scoringFormat ?? x.winningPoints ?? x.winning_points ?? '21'),
+          registrationFee: x.registrationFee ? String(x.registrationFee) : '',
+          prizeType: PRIZE_TYPES.includes(x.prizeType) ? x.prizeType : 'NONE',
+          winnerTrophyName: x.winnerTrophyName || '',
+          runnerUpTrophyName: x.runnerUpTrophyName || '',
+          winnerCashAmount: x.winnerCashAmount != null ? String(x.winnerCashAmount) : '',
+          runnerUpCashAmount: x.runnerUpCashAmount != null ? String(x.runnerUpCashAmount) : '',
+          thirdPlaceEnabled: Boolean(x.thirdPlaceEnabled),
+          thirdPlaceTrophyName: x.thirdPlaceTrophyName || '',
+          thirdPlaceCashAmount: x.thirdPlaceCashAmount != null ? String(x.thirdPlaceCashAmount) : '',
         });
+        if (x.organizerName || x.organizerMobile) {
+          setOrganizerSnapshot({ name: x.organizerName || 'Organizer', mobile: x.organizerMobile || '' });
+        }
         setCategories(
           (x.categories || []).map((c: OrganizerCategory) => ({
             ...c,
@@ -289,32 +341,58 @@ export default function Create() {
       );
     if (!categories.length || categories.some((category) => !category.name.trim()))
       return Alert.alert('Check details', 'Select at least one category and provide its name.');
-    if (values.prize && (!/^\d+(\.\d{1,2})?$/.test(values.prize) || Number(values.prize) < 0))
-      return Alert.alert('Check prize', 'Cash prize must be a non-negative amount.');
+    const money = (value: string) => (value === '' ? null : Number(value));
+    const moneyFields: [string, string][] = [
+      ['Registration fee', values.registrationFee],
+      ['Winner prize', values.winnerCashAmount],
+      ['Runner-up prize', values.runnerUpCashAmount],
+      ['3rd place prize', values.thirdPlaceCashAmount],
+    ];
+    for (const [label, value] of moneyFields)
+      if (value !== '' && (!/^\d+(\.\d{1,2})?$/.test(value) || Number(value) < 0))
+        return Alert.alert('Check prize', `${label} must be a non-negative amount.`);
     const reportingTime = reportingTimeValue(values.reportingTime);
     if (reportingTime === null) return Alert.alert('Check time', 'Reporting time must use HH:mm.');
+    const registrationCloseTime = reportingTimeValue(values.registrationCloseTime);
+    if (registrationCloseTime === null)
+      return Alert.alert('Check time', 'Registration close time must use HH:mm.');
+    // Mirrors the backend's own normalization (tournament.service.js validate()) so the values
+    // sent match what will actually be persisted — belt-and-braces, the backend remains
+    // authoritative and re-normalizes regardless of what's sent here.
+    const trophyApplies = values.prizeType === 'TROPHY' || values.prizeType === 'BOTH';
+    const cashApplies = values.prizeType === 'CASH' || values.prizeType === 'BOTH';
+    const thirdPlace = values.thirdPlaceEnabled && values.prizeType !== 'NONE';
     const input = {
       name: values.name.trim(),
       description: values.description,
       tournamentDate: values.tournamentDate,
       registrationCloseDate: values.registrationCloseDate,
       ...(reportingTime ? { reportingTime } : {}),
+      ...(registrationCloseTime ? { registrationCloseTime } : {}),
       venueName: values.venueName,
       venueAddress: values.venueAddress,
+      mapLink: values.mapLink.trim() || undefined,
       format: values.format,
       categories: cleanCategories(categories),
       generalRules: values.rules.trim() ? [values.rules.trim()] : [],
-      prizes: values.prize === '' ? undefined : values.prize,
       shuttle: values.shuttleType,
       scoringFormat: values.winningPoints || undefined,
+      registrationFee: money(values.registrationFee) ?? 0,
+      prizeType: values.prizeType,
+      winnerTrophyName: trophyApplies ? values.winnerTrophyName.trim() || null : null,
+      runnerUpTrophyName: trophyApplies ? values.runnerUpTrophyName.trim() || null : null,
+      winnerCashAmount: cashApplies ? money(values.winnerCashAmount) : null,
+      runnerUpCashAmount: cashApplies ? money(values.runnerUpCashAmount) : null,
+      thirdPlaceEnabled: thirdPlace,
+      thirdPlaceTrophyName: thirdPlace && trophyApplies ? values.thirdPlaceTrophyName.trim() || null : null,
+      thirdPlaceCashAmount: thirdPlace && cashApplies ? money(values.thirdPlaceCashAmount) : null,
     };
     mutation.mutate(
       { id, input, organizerId },
       {
         onSuccess: (saved: any) => {
           if (id) {
-            Alert.alert('Saved', 'Tournament draft saved successfully.');
-            router.back();
+            setSavedModalVisible(true);
           } else
             router.replace({
               pathname: '/(organizer)/tournament',
@@ -388,6 +466,11 @@ export default function Create() {
               value={values.reportingTime}
               onChange={(value) => set('reportingTime', value)}
             />
+            <TimeField
+              label="Registration Close Time"
+              value={values.registrationCloseTime}
+              onChange={(value) => set('registrationCloseTime', value)}
+            />
           </Section>
           <Section title="Venue">
             <Field
@@ -402,6 +485,12 @@ export default function Create() {
               onChangeText={(value) => set('venueAddress', value)}
               placeholder="Enter venue address"
               multiline
+            />
+            <Field
+              label="Map Link"
+              value={values.mapLink}
+              onChangeText={(value) => set('mapLink', value)}
+              placeholder="Optional Google Maps link"
             />
           </Section>
           <Section title="Categories">
@@ -514,14 +603,131 @@ export default function Create() {
               multiline
             />
           </Section>
+          <Section title="Organizer Details">
+            <Text style={s.helper}>This information will be visible to all participants</Text>
+            <View style={s.organizerRow}>
+              <View style={s.organizerAvatar}>
+                <Text style={s.organizerInitial}>{organizerDisplay.name.trim().charAt(0).toUpperCase() || 'O'}</Text>
+              </View>
+              <View style={s.organizerCopy}>
+                <Text style={s.organizerName}>{organizerDisplay.name}</Text>
+                <Text style={s.organizerRole}>Organizer</Text>
+                {!!organizerDisplay.mobile && (
+                  <View style={s.organizerPhoneRow}>
+                    <Text style={s.organizerPhoneIcon}>📞</Text>
+                    <Text style={s.organizerPhone}>{organizerDisplay.mobile}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </Section>
+          <Section title="Registration Fee">
+            <Text style={s.label}>Registration Fee</Text>
+            <View style={s.currencyInput}>
+              <Text style={s.currencySymbol}>₹</Text>
+              <TextInput
+                accessibilityLabel="Registration Fee"
+                value={values.registrationFee}
+                onChangeText={(value) => set('registrationFee', value.replace(/[^0-9.]/g, ''))}
+                placeholder="Enter registration fee"
+                placeholderTextColor={colors.muted}
+                keyboardType="numeric"
+                style={s.currencyField}
+              />
+            </View>
+            <Text style={s.helper}>
+              Leave empty or enter 0 if there is no registration fee. Amount payable per
+              registration (per player for Singles, per team entry for Doubles).
+            </Text>
+          </Section>
           <Section title="Prize & Match Setup">
-            <Field
-              label="Cash Prize"
-              value={values.prize}
-              onChangeText={(value) => set('prize', value.replace(/[^0-9.]/g, ''))}
-              placeholder="Optional"
-              keyboardType="numeric"
-            />
+            <Text style={s.label}>Prize Type</Text>
+            <View style={s.prizeGrid}>
+              {PRIZE_TYPES.map((type) => (
+                <Pressable
+                  key={type}
+                  onPress={() => setValues((previous) => ({ ...previous, prizeType: type }))}
+                  style={[s.prizeOption, values.prizeType === type && s.prizeOptionActive]}
+                >
+                  <Text
+                    style={[s.prizeOptionTitle, values.prizeType === type && s.prizeOptionTitleActive]}
+                  >
+                    {PRIZE_TYPE_COPY[type].title}
+                  </Text>
+                  <Text
+                    style={[s.prizeOptionSub, values.prizeType === type && s.prizeOptionSubActive]}
+                  >
+                    {PRIZE_TYPE_COPY[type].sub}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            {(values.prizeType === 'TROPHY' || values.prizeType === 'BOTH') && (
+              <View style={s.subSection}>
+                <Text style={s.subSectionTitle}>Trophy Details</Text>
+                <Field
+                  label="Winner Trophy"
+                  value={values.winnerTrophyName}
+                  onChangeText={(value) => set('winnerTrophyName', value)}
+                  placeholder="e.g. Winner Cup"
+                />
+                <Field
+                  label="Runner-up Trophy"
+                  value={values.runnerUpTrophyName}
+                  onChangeText={(value) => set('runnerUpTrophyName', value)}
+                  placeholder="e.g. Runner-up Cup"
+                />
+                {values.thirdPlaceEnabled && (
+                  <Field
+                    label="3rd Place Trophy"
+                    value={values.thirdPlaceTrophyName}
+                    onChangeText={(value) => set('thirdPlaceTrophyName', value)}
+                    placeholder="e.g. 3rd Place Cup"
+                  />
+                )}
+              </View>
+            )}
+            {(values.prizeType === 'CASH' || values.prizeType === 'BOTH') && (
+              <View style={s.subSection}>
+                <Text style={s.subSectionTitle}>Cash Prize Details</Text>
+                <Field
+                  label="Winner Prize (₹)"
+                  value={values.winnerCashAmount}
+                  onChangeText={(value) => set('winnerCashAmount', value.replace(/[^0-9.]/g, ''))}
+                  placeholder="e.g. 10000"
+                  keyboardType="numeric"
+                />
+                <Field
+                  label="Runner-up Prize (₹)"
+                  value={values.runnerUpCashAmount}
+                  onChangeText={(value) => set('runnerUpCashAmount', value.replace(/[^0-9.]/g, ''))}
+                  placeholder="e.g. 5000"
+                  keyboardType="numeric"
+                />
+                {values.thirdPlaceEnabled && (
+                  <Field
+                    label="3rd Place Prize (₹)"
+                    value={values.thirdPlaceCashAmount}
+                    onChangeText={(value) => set('thirdPlaceCashAmount', value.replace(/[^0-9.]/g, ''))}
+                    placeholder="e.g. 2500"
+                    keyboardType="numeric"
+                  />
+                )}
+              </View>
+            )}
+            {values.prizeType !== 'NONE' && (
+              <View style={s.darkSwitchRow}>
+                <Text style={s.darkSwitchLabel}>Enable 3rd Place Prize</Text>
+                <Switch
+                  value={values.thirdPlaceEnabled}
+                  onValueChange={(value) =>
+                    setValues((previous) => ({ ...previous, thirdPlaceEnabled: value }))
+                  }
+                  trackColor={{ false: colors.border, true: colors.lime }}
+                  thumbColor={values.thirdPlaceEnabled ? colors.primary : '#f4f4f4'}
+                />
+              </View>
+            )}
             <Field
               label="Shuttle Type"
               value={values.shuttleType}
@@ -547,7 +753,7 @@ export default function Create() {
           </Section>
           <PrimaryButton
             disabled={mutation.isPending}
-            title={mutation.isPending ? 'Submitting…' : id ? 'Save Draft' : 'Create Tournament'}
+            title={mutation.isPending ? 'Submitting…' : id ? 'Save Changes' : 'Create Tournament'}
             onPress={save}
           />
         </ScrollView>
@@ -571,6 +777,20 @@ export default function Create() {
           </View>
         </Pressable>
       </Modal>
+      <SmashConfirmModal
+        visible={savedModalVisible}
+        title="Saved"
+        message="Tournament updated successfully."
+        icon="check"
+        confirmText="OK"
+        showCancel={false}
+        variant="primary"
+        onConfirm={() => {
+          setSavedModalVisible(false);
+          router.back();
+        }}
+        onCancel={() => setSavedModalVisible(false)}
+      />
     </ScreenContainer>
   );
 }
@@ -684,4 +904,58 @@ const s = StyleSheet.create({
   radioActive: { color: colors.primary },
   optionText: { color: colors.text, fontSize: 16, fontWeight: '800' },
   loading: { color: colors.white, marginTop: spacing.xl, fontSize: 18 },
+  organizerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
+  organizerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(138, 226, 52, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(138, 226, 52, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  organizerInitial: { color: colors.lime, fontSize: 18, fontWeight: '900' },
+  organizerCopy: { flex: 1 },
+  organizerName: { color: colors.white, fontSize: 16, fontWeight: '900' },
+  organizerRole: { color: '#8FA59B', fontSize: 11, fontWeight: '700', marginTop: 1 },
+  organizerPhoneRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  organizerPhoneIcon: { fontSize: 12 },
+  organizerPhone: { color: '#C6DDD1', fontSize: 13, fontWeight: '700' },
+  currencyInput: {
+    backgroundColor: colors.white,
+    borderRadius: radius.sm,
+    paddingHorizontal: 13,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  currencySymbol: { color: colors.text, fontSize: 15, fontWeight: '900' },
+  currencyField: { flex: 1, paddingVertical: 13, color: colors.text, fontSize: 15 },
+  prizeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  prizeOption: {
+    width: '48%',
+    borderWidth: 1,
+    borderColor: '#39705A',
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  prizeOptionActive: { backgroundColor: colors.lime, borderColor: colors.lime },
+  prizeOptionTitle: { color: colors.white, fontWeight: '900', fontSize: 14 },
+  prizeOptionTitleActive: { color: colors.primaryDark },
+  prizeOptionSub: { color: '#8FA59B', fontSize: 11, marginTop: 2 },
+  prizeOptionSubActive: { color: colors.primaryDark },
+  subSection: { marginTop: spacing.md },
+  subSectionTitle: { color: colors.lime, fontSize: 13, fontWeight: '900', marginBottom: 6 },
+  darkSwitchRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    marginBottom: 4,
+  },
+  darkSwitchLabel: { color: colors.white, fontWeight: '800', fontSize: 13, flex: 1 },
 });

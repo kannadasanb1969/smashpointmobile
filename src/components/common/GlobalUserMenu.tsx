@@ -17,7 +17,16 @@ export function GlobalUserMenu({ embedded = false, displayName }: { embedded?: b
   const setWorkspace = useAuthStore((s) => s.setWorkspace);
   const workspace = useAuthStore((s) => s.activeWorkspace || s.user?.role || 'PLAYER');
   const user = useAuthStore((s) => s.user);
-  const name = displayName || user?.name || user?.fullName || 'Player';
+  // `displayName` (the mapped backend field, from users.display_name) is the authoritative name
+  // for ORGANIZER/ADMIN, which have no player_profile to draw a name from the way PLAYER does.
+  // The literal fallback is workspace-aware rather than a hardcoded "Player" — this menu is
+  // shared across all three workspaces.
+  const name =
+    displayName ||
+    user?.displayName ||
+    user?.name ||
+    user?.fullName ||
+    (workspace === 'ORGANIZER' ? 'Organizer' : workspace === 'ADMIN' ? 'Admin' : 'Player');
   const initial = playerInitial(name);
   const workspaceLabel = `${workspace.charAt(0)}${workspace.slice(1).toLowerCase()} Workspace`;
   const logout = () => Alert.alert('Logout?', 'Are you sure you want to sign out from this device?', [

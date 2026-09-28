@@ -77,10 +77,26 @@ export const matchParticipant = (match: any, side: 1 | 2, participants: any[] = 
 // Quarter/Semi/Final naming only makes sense for a KNOCKOUT bracket. A LEAGUE (round-robin) fixture
 // has no such stages — round 2 of a 15-round round-robin is just "Round 2", not "Quarter Final" — so
 // callers must pass the fixture's actual format; omitting it keeps the old KNOCKOUT-shaped behavior.
-export const roundLabel = (value: unknown, format?: string): string => {
+// `context` (this round's 0-based index among all of THIS bracket's rounds, and the total round count)
+// labels relative to the LAST round instead of by absolute round number: an 8-team bracket only has 3
+// rounds, so its round 1 is the Quarter Final, not "Round 1" — the same ROUND_1 string that would be a
+// genuine Round 1 (Round of 16) in a bigger, 4-round bracket. Omitting context keeps the old absolute
+// mapping for any caller not yet updated to pass it.
+export const roundLabel = (
+  value: unknown,
+  format?: string,
+  context?: { index: number; total: number },
+): string => {
   const raw = String(value ?? '').replace(/_/g, ' ');
   const num = /^ROUND (\d+)$/i.test(raw) ? raw.match(/\d+/)?.[0] : /^\d+$/.test(raw) ? raw : null;
   if (format === 'LEAGUE' || format === 'ROUND_ROBIN') return num ? `Round ${num}` : raw || 'Fixtures';
+  if (context) {
+    const fromEnd = context.total - 1 - context.index;
+    if (fromEnd === 0) return 'Final';
+    if (fromEnd === 1) return 'Semi Final';
+    if (fromEnd === 2) return 'Quarter Final';
+    return `Round ${context.index + 1}`;
+  }
   if (/^ROUND 1$/i.test(raw) || raw === '1') return 'Round 1';
   if (/^ROUND 2$/i.test(raw) || raw === '2') return 'Quarter Final';
   if (/^ROUND 3$/i.test(raw) || raw === '3') return 'Semi Final';

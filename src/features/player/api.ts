@@ -5,6 +5,7 @@ export const playerKeys = {
   tournament: (id: string) => ['tournament', id],
   players: ['players'],
   registrations: (id: string) => ['registrations', id],
+  activeRegistrations: (id: string) => ['registrations', id, 'active'],
   profile: (id: string) => ['profile', id],
 };
 export const playerApi = {
@@ -13,8 +14,8 @@ export const playerApi = {
   tournament: async (id: string) => (await apiClient.get(`/api/tournaments/${id}`)).data,
   players: async () => (await apiClient.get('/api/players')).data,
   guests: async () => (await apiClient.get('/api/guest-players')).data,
-  registrations: async (id: string) =>
-    (await apiClient.get(`/api/registrations/player/${id}`)).data,
+  registrations: async () => (await apiClient.get('/api/registrations/me')).data,
+  activeRegistrations: async () => (await apiClient.get('/api/registrations/me', { params: { scope: 'active' } })).data,
   profile: async (id: string) => (await apiClient.get(`/api/players/${id}`)).data,
 };
 export const useTournaments = (filters: Record<string, string>) =>
@@ -34,7 +35,13 @@ export const useGuests = () => useQuery({ queryKey: ['guests'], queryFn: playerA
 export const useRegistrations = (id: string) =>
   useQuery({
     queryKey: playerKeys.registrations(id),
-    queryFn: () => playerApi.registrations(id),
+    queryFn: () => playerApi.registrations(),
+    enabled: Boolean(id),
+  });
+export const useActiveRegistrations = (id: string) =>
+  useQuery({
+    queryKey: playerKeys.activeRegistrations(id),
+    queryFn: () => playerApi.activeRegistrations(),
     enabled: Boolean(id),
   });
 export const useProfile = (id: string) =>

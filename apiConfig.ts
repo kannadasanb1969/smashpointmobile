@@ -16,5 +16,4 @@ export const API_BASE_URL = "http://10.0.2.2:8787";
 
 // ---------------- PRODUCTION ----------------
 
-// export const API_BASE_URL =
-//   "https://badminton-api.kannadasanb1969.workers.dev";
+// export const API_BASE_URL = "https://badminton-api.kannadasanb1969.workers.dev";

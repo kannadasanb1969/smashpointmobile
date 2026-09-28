@@ -18,6 +18,9 @@ import {
   normalizeFixtureResponse,
 } from '../../../src/features/player/tournamentResults';
 import { TournamentIcon } from '../tournaments';
+import { prizeRows, registrationFeeLabel } from '../../../src/features/organizer/prize';
+import { getContentAvailability } from '../../../src/features/availability/contentAvailability';
+import { getTournamentLifecycle } from '../../../src/features/organizer/status';
 
 const date = (v?: string) =>
   v
@@ -34,10 +37,7 @@ const time = (v?: string) => {
 };
 const status = (t: any) => {
   if (t?.status === 'COMPLETED' || t?.completionStatus === 'COMPLETED') return 'COMPLETED';
-  const end = String(t?.registrationCloseDate || t?.registrationEndDate || '').slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(end) && new Date().toISOString().slice(0, 10) > end
-    ? 'CLOSED'
-    : 'OPEN';
+  return getTournamentLifecycle(t).registrationState === 'CLOSED' ? 'CLOSED' : 'OPEN';
 };
 const STATUS_LABEL: Record<string, string> = {
   OPEN: 'OPEN REGISTRATION',
@@ -167,6 +167,8 @@ export default function Detail() {
             <Stat icon="clock" value={daysLeft != null ? daysLeft : '—'} label={daysLeft != null ? 'Days left' : 'Registration timing'} />
           </View>
 
+          <TournamentInfoCard tournament={t} />
+
           <View style={s.sectionHeading}>
             <Text style={s.heading}>Event categories</Text>
             <Text style={s.helper}>Select a category to register</Text>
@@ -187,6 +189,13 @@ export default function Detail() {
           ) : (
             <View style={s.panel}>
               <Text style={s.muted}>No event categories available.</Text>
+            </View>
+          )}
+
+          {cats.length > 0 && (
+            <View style={s.section}>
+              <Text style={s.heading}>Competition</Text>
+              <Text style={s.helper}>Fixtures, matches and results unlock by category as they become available.</Text>
             </View>
           )}
 
@@ -242,26 +251,35 @@ function Category({ c, tid, st, regs, results, players, tournamentName }: {
   c: any; tid: string; st: string; regs: any; results: any[]; players: any[]; tournamentName: string;
 }) {
   const [open, setOpen] = useState(false),
-    registered = isPlayerRegisteredForCategory(regs, tid, c.id);
+    registered = isPlayerRegisteredForCategory(regs, tid, c.id),
+    registration = getTournamentLifecycle({ registrationState: st, status: 'PUBLISHED' }, c);
   const result = results.find(
     (r) => String(r.tournamentId) === tid && (!r.categoryId || String(r.categoryId) === String(c.id)),
   );
   const viewFixtures = () => {
-    router.push({
-      pathname: '/(player)/tournament/fixtures',
-      params: { tournamentId: tid, categoryId: String(c.id) },
-    });
+    router.push({ pathname: '/(player)/tournament/fixtures', params: { tournamentId: tid, categoryId: String(c.id), view: 'fixtures' } });
+  };
+  const viewMatches = () => {
+    if (!availability.canViewFixtures) return;
+    router.push({ pathname: '/(player)/tournament/fixtures', params: { tournamentId: tid, categoryId: String(c.id), view: 'matches' } });
+  };
+  const viewResults = () => {
+    if (!availability.canViewResults) return;
+    router.push({ pathname: '/(player)/tournament/fixtures', params: { tournamentId: tid, categoryId: String(c.id), view: 'results' } });
   };
   const fixtures = useQuery({
     queryKey: ['player-fixtures', tid, String(c.id)],
     queryFn: () => ops.fixtures(tid, String(c.id)).then((response) => response.data),
-    enabled: open && st === 'COMPLETED',
+    // Was `enabled: open` (only fetched once the category row was tapped to expand), but the
+    // "Competition" card below (View Fixtures/Matches/Results) renders unconditionally and reads
+    // `availability`, which is derived from this query — so a player who never expanded the
+    // category saw "Fixtures not available yet" forever, even after fixtures were published.
     staleTime: 0,
     refetchOnMount: true,
   });
   const raw = Array.isArray(fixtures.data)
     ? fixtures.data
-    : fixtures.data?.fixtures || fixtures.data?.data || fixtures.data?.items || [];
+    : fixtures.data?.fixtures || fixtures.data?.data || fixtures.data?.items || fixtures.data?.matches || [];
   const normalized = normalizeFixtureResponse(raw);
   const matching = normalized.filter((fixture) => {
     const fixtureTournamentId = fixture.tournamentId ?? fixture.tournament_id ?? fixture.tournament?.id;
@@ -272,6 +290,7 @@ function Category({ c, tid, st, regs, results, players, tournamentName }: {
       (!fixtureCategoryId || String(fixtureCategoryId) === String(c.id))
     );
   });
+  const availability = getContentAvailability({ fixture: fixtures.data?.fixture, fixtures: matching, results: result ? [result] : [], visibility: 'published' });
   const final = findFinalFixture(matching);
   const winner = getFixtureWinner(final, players),
     runnerUp = getFixtureRunnerUp(final, players);
@@ -297,7 +316,7 @@ function Category({ c, tid, st, regs, results, players, tournamentName }: {
           <View style={s.registeredPill}>
             <Text style={s.registeredPillText}>✓ Registered</Text>
           </View>
-        ) : st === 'CLOSED' ? (
+        ) : st === 'CLOSED' || !registration.canRegister ? (
           <View style={s.closedPill}>
             <Text style={s.closedPillText}>Closed</Text>
           </View>
@@ -331,9 +350,65 @@ function Category({ c, tid, st, regs, results, players, tournamentName }: {
         ) : (
           <Result winner={winner} runnerUp={runnerUp} fallback={result} />
         ))}
-      {(st === 'COMPLETED' || registered) && (
-        <PrimaryButton title="View Fixtures →" onPress={viewFixtures} />
+      <View style={s.competitionCard}>
+        <Text style={s.competitionTitle}>Competition</Text>
+        <PrimaryButton disabled={!availability.canViewFixtures} title="View Fixtures →" onPress={viewFixtures} />
+        {!availability.canViewFixtures && <Text style={s.competitionHint}>Fixtures not available yet</Text>}
+        <PrimaryButton disabled={!availability.canViewFixtures} title="View Matches →" onPress={viewMatches} />
+        {!availability.canViewFixtures && <Text style={s.competitionHint}>Matches available after fixtures are published</Text>}
+        <PrimaryButton disabled={!availability.canViewResults} title="View Results →" onPress={viewResults} />
+        {!availability.canViewResults && <Text style={s.competitionHint}>Results available after matches are completed</Text>}
+      </View>
+    </View>
+  );
+}
+function TournamentInfoCard({ tournament }: { tournament: any }) {
+  const fee = registrationFeeLabel(tournament);
+  const rows = prizeRows(tournament);
+  const legacyPrize = tournament.prizes || tournament.prize || tournament.prizeAmount || tournament.prizePool;
+  const hasOrganizer = Boolean(tournament.organizerName || tournament.organizerMobile);
+  return (
+    <View style={s.infoCard}>
+      <View style={s.infoCardRow}>
+        <View style={s.infoCardIconBox}>
+          <TournamentIcon name="star" size={20} />
+        </View>
+        <View style={s.infoCardCopy}>
+          <Text style={s.infoCardLabel}>Registration Fee</Text>
+          <Text style={s.infoCardValue}>{fee}</Text>
+        </View>
+      </View>
+      {hasOrganizer && (
+        <View style={s.infoCardRow}>
+          <View style={s.infoCardIconBox}>
+            <TournamentIcon name="single" size={20} />
+          </View>
+          <View style={s.infoCardCopy}>
+            <Text style={s.infoCardLabel}>Organizer</Text>
+            {!!tournament.organizerName && <Text style={s.infoCardValue}>{tournament.organizerName}</Text>}
+            {!!tournament.organizerMobile && (
+              <Text style={s.infoCardSub}>📞 {tournament.organizerMobile}</Text>
+            )}
+          </View>
+        </View>
       )}
+      <View style={s.infoCardRow}>
+        <View style={s.infoCardIconBox}>
+          <TournamentIcon name="trophy" size={20} />
+        </View>
+        <View style={s.infoCardCopy}>
+          <Text style={s.infoCardLabel}>Prizes</Text>
+          {rows.length ? (
+            rows.map((row) => (
+              <Text key={row.label} style={s.infoCardValue}>
+                {row.medal} {row.label} — {row.detail}
+              </Text>
+            ))
+          ) : (
+            <Text style={s.infoCardValue}>{legacyPrize || 'No Prize'}</Text>
+          )}
+        </View>
+      </View>
     </View>
   );
 }
@@ -421,6 +496,9 @@ const s = StyleSheet.create({
   statValue: { color: colors.white, fontSize: 19, fontWeight: '900' },
   statLabel: { color: '#8FA59B', fontSize: 10, marginTop: 6 },
   category: { backgroundColor: '#06251F', borderRadius: 17, borderWidth: 1, borderColor: '#0D6049', padding: 14, marginTop: 12, gap: 10 },
+  competitionCard: { marginTop: 4, gap: 8 },
+  competitionTitle: { color: '#A8D66B', fontSize: 12, fontWeight: '900', letterSpacing: 0.7 },
+  competitionHint: { color: '#82988E', fontSize: 11, marginBottom: 2 },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   categoryMain: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, gap: 11 },
   categoryIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#124C40', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -446,4 +524,11 @@ const s = StyleSheet.create({
   medalIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#124C40', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   medalCopy: { flex: 1 },
   medalHint: { color: '#82988E', fontSize: 11, marginTop: 5 },
+  infoCard: { backgroundColor: '#06251F', borderRadius: 16, borderWidth: 1, borderColor: '#0D6049', padding: 14, marginTop: 14, gap: 12 },
+  infoCardRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  infoCardIconBox: { width: 38, height: 38, borderRadius: 11, backgroundColor: '#124C40', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  infoCardCopy: { flex: 1, minWidth: 0 },
+  infoCardLabel: { color: '#8FA59B', fontSize: 11, fontWeight: '700', marginBottom: 2 },
+  infoCardValue: { color: colors.white, fontSize: 14, fontWeight: '800', marginTop: 1 },
+  infoCardSub: { color: '#B6C7C0', fontSize: 12, marginTop: 2 },
 });

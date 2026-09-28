@@ -8,6 +8,7 @@ import { BackButton } from '../../../src/components/common/BackButton';
 import { colors, radius, shadows, spacing } from '../../../src/theme';
 import { TournamentIcon } from '../../../src/components/common/TournamentIcon';
 import { friendlyApi, friendlyKeys, friendlyIsOwner, useFriendlyDetail, useFriendlyRequests, useFriendlyParticipants, useFriendlyDecision, pendingRequest, classifyFriendlyRequestFailure, recoverFriendlyRequestFailure, friendlyPairingReady, friendlyPairingLocked } from '../../../src/features/player/friendly';
+import { getContentAvailability } from '../../../src/features/availability/contentAvailability';
 
 const nameOf = (x: any) => x.full_name || x.fullName || x.playerName || x.player_name || 'Player details unavailable';
 const codeOf = (x: any) => x.playerCode || x.player_code || x.playerId || x.player_id;
@@ -33,7 +34,7 @@ export default function Requests() {
   if (!owner) return <ScreenContainer><Header/><View style={s.notice}><Text style={s.noticeTitle}>Host access only</Text><Text style={s.muted}>Only the friendly match creator can manage this match.</Text></View></ScreenContainer>;
   const pending = (requests.data || []).filter((x: any) => pendingRequest(x.status)); const confirmed = participants.data || []; const teamRows = teams.data || [];
   const paired = new Set(teamRows.flatMap((x: any) => (x.members || []).map((m: any) => String(m.id || m.player_id)))); const unpaired = confirmed.filter((x: any) => !paired.has(String(x.player_id || x.id)));
-  const min = detail.data?.event_type === 'SINGLES' ? 6 : 8; const enough = confirmed.length >= min; const locked = friendlyPairingLocked(fixtures.data); const ready = friendlyPairingReady(detail.data, confirmed, teamRows); const matches = fixtures.data?.matches?.length || 0;
+  const min = detail.data?.event_type === 'SINGLES' ? 6 : 8; const enough = confirmed.length >= min; const locked = friendlyPairingLocked(fixtures.data); const ready = friendlyPairingReady(detail.data, confirmed, teamRows); const matches = fixtures.data?.matches?.length || 0; const availability = getContentAvailability({ fixture: fixtures.data?.fixture, fixtures: fixtures.data?.matches || [] });
   return <ScreenContainer><ScrollView contentContainerStyle={s.content} refreshControl={<RefreshControl refreshing={detail.isFetching || requests.isFetching || participants.isFetching || teams.isFetching} onRefresh={refresh}/>}> 
     <Header/><Text style={s.title}>Join Requests</Text><Text style={s.subtitle}>{detail.data?.title || 'Friendly Match'} · Review and manage your players</Text>
     <Section title="PENDING REQUESTS" count={`${pending.length} Pending`}/>{requests.isLoading ? <Loading/> : pending.length ? pending.map((x: any) => <RequestCard key={x.id} item={x} active={active === String(x.id)} activeKind={activeKind} approve={() => decide(String(x.id), 'approve')} reject={() => confirmAction(x, 'Reject', () => decide(String(x.id), 'reject'))}/>) : <Empty text="No pending requests"/>}
@@ -70,7 +71,7 @@ export default function Requests() {
     {fixtures.data?.fixture ? (
       <>
         <Status text="✓ Fixtures generated"/>
-        <GlowButton icon="▶" title="View Fixtures" sub="Check the match schedule" onPress={() => router.push({ pathname: '/(player)/friendly/fixtures', params: { id } })}/>
+        <GlowButton icon="▶" title="View Fixtures" sub="Check the match schedule" disabled={!availability.canViewFixtures} onPress={() => { if (availability.canViewFixtures) router.push({ pathname: '/(player)/friendly/fixtures', params: { id } }); }}/>
       </>
     ) : (
       <GlowButton

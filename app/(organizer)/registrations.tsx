@@ -11,6 +11,7 @@ import { colors, radius, spacing } from '../../src/theme';
 import { normalizeFixtureResponse } from '../../src/features/player/tournamentResults';
 import { TournamentIcon, type TournamentIconName } from '../../src/components/common/TournamentIcon';
 import { getTournamentDisplayStatus, tournamentStatusLabel } from '../../src/features/organizer/status';
+import { getContentAvailability } from '../../src/features/availability/contentAvailability';
 
 export default function Registrations() {
   const { id, categoryId } = useLocalSearchParams<{ id: string; categoryId?: string }>();
@@ -46,6 +47,7 @@ export default function Registrations() {
     selectedCategory?.eventType,
   );
   const fixtures = fixtureRows(fixturesQuery.data);
+  const availability = getContentAvailability({ fixtures });
   const isDoubles = String(selectedCategory?.eventType || '').toUpperCase() === 'DOUBLES';
   const teams = isDoubles ? registrations.filter((r) => hasPartner(r)) : [];
   const unpaired = isDoubles ? registrations.filter((r) => !hasPartner(r)) : registrations;
@@ -118,12 +120,12 @@ export default function Registrations() {
               </View>
 
               <View style={s.actionsRow}>
-                <Pressable style={s.actionButton} onPress={openFixtures}>
+                <Pressable accessibilityState={{ disabled: !availability.canViewFixtures }} disabled={!availability.canViewFixtures} style={[s.actionButton, !availability.canViewFixtures && { opacity: 0.45 }]} onPress={openFixtures}>
                   <TournamentIcon name="bars" size={20} />
                   <Text style={s.actionTitle}>View Fixtures</Text>
                   <Text style={s.actionSubtitle}>Check upcoming matches</Text>
                 </Pressable>
-                <Pressable style={s.actionButton} onPress={openFixtures}>
+                <Pressable accessibilityState={{ disabled: !availability.canViewResults }} disabled={!availability.canViewResults} style={[s.actionButton, !availability.canViewResults && { opacity: 0.45 }]} onPress={openFixtures}>
                   <TournamentIcon name="clock" size={20} />
                   <Text style={s.actionTitle}>View Results</Text>
                   <Text style={s.actionSubtitle}>See match results</Text>

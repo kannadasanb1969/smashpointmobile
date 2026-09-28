@@ -50,6 +50,10 @@ export const authApi = {
     apiClient.post('/api/auth/verify-otp', { mobile: normalizeAuthMobile(mobile), otp, role }),
   selectWorkspace: (workspace: 'PLAYER' | 'ORGANIZER' | 'ADMIN') =>
     apiClient.post('/api/auth/select-workspace', { workspace }),
+  // Existing backend route (GET /api/users/:id) — not previously called from mobile. Used to
+  // re-hydrate the authenticated user's display name after a cold app restart, where session
+  // restore only has the access token's {sub, role} to work with (see authStore.tokenUser).
+  getUser: (id: string) => apiClient.get(`/api/users/${id}`),
   logout: async () => {
     const refreshToken = await secureStorage.getRefreshToken();
     if (refreshToken) await axios.post(`${env.apiBaseUrl}/api/auth/logout`, { refreshToken }, { timeout: 10000 });
