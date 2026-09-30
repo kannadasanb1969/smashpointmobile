@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/apiClient';
 export const playerKeys = {
   tournaments: (filters: object) => ['tournaments', filters],
@@ -7,6 +7,13 @@ export const playerKeys = {
   registrations: (id: string) => ['registrations', id],
   activeRegistrations: (id: string) => ['registrations', id, 'active'],
   profile: (id: string) => ['profile', id],
+};
+export const connectionKeys = {
+  all: ['player-connections'] as const,
+  discover: (search: string) => ['player-connections', 'discover', search] as const,
+  accepted: ['player-connections', 'accepted'] as const,
+  requests: ['player-connections', 'requests'] as const,
+  profile: (id: string) => ['player-connections', 'profile', id] as const,
 };
 export const playerApi = {
   tournaments: async (filters: Record<string, string>) =>
@@ -17,6 +24,15 @@ export const playerApi = {
   registrations: async () => (await apiClient.get('/api/registrations/me')).data,
   activeRegistrations: async () => (await apiClient.get('/api/registrations/me', { params: { scope: 'active' } })).data,
   profile: async (id: string) => (await apiClient.get(`/api/players/${id}`)).data,
+  discoverConnections: async (search: string) =>
+    (await apiClient.get('/api/connections/discover', { params: search ? { search } : undefined })).data,
+  acceptedConnections: async () => (await apiClient.get('/api/connections')).data,
+  connectionRequests: async () => (await apiClient.get('/api/connections/requests')).data,
+  connectionProfile: async (id: string) => (await apiClient.get(`/api/connections/profile/${id}`)).data,
+  requestConnection: async (id: string) => (await apiClient.post(`/api/connections/${id}`)).data,
+  acceptConnection: async (id: string) => (await apiClient.post(`/api/connections/${id}/accept`)).data,
+  declineConnection: async (id: string) => (await apiClient.post(`/api/connections/${id}/decline`)).data,
+  unconnect: async (id: string) => (await apiClient.delete(`/api/connections/${id}`)).data,
 };
 export const useTournaments = (filters: Record<string, string>) =>
   useQuery({
@@ -50,3 +66,24 @@ export const useProfile = (id: string) =>
     queryFn: () => playerApi.profile(id),
     enabled: Boolean(id),
   });
+
+export const useConnectionDiscover = (search: string) =>
+  useQuery({ queryKey: connectionKeys.discover(search), queryFn: () => playerApi.discoverConnections(search) });
+export const useAcceptedConnections = () =>
+  useQuery({ queryKey: connectionKeys.accepted, queryFn: playerApi.acceptedConnections });
+export const useConnectionRequests = () =>
+  useQuery({ queryKey: connectionKeys.requests, queryFn: playerApi.connectionRequests });
+export const useConnectionProfile = (id: string) =>
+  useQuery({ queryKey: connectionKeys.profile(id), queryFn: () => playerApi.connectionProfile(id), enabled: Boolean(id) });
+
+function useConnectionMutation<T extends (...args: any[]) => Promise<any>>(fn: T) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => client.invalidateQueries({ queryKey: connectionKeys.all }),
+  });
+}
+export const useRequestConnection = () => useConnectionMutation(playerApi.requestConnection);
+export const useAcceptConnection = () => useConnectionMutation(playerApi.acceptConnection);
+export const useDeclineConnection = () => useConnectionMutation(playerApi.declineConnection);
+export const useUnconnect = () => useConnectionMutation(playerApi.unconnect);

@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../api/apiClient';
 export type Notification = {
   id: string;
+  type?: string;
   title?: string;
   message?: string;
+  link?: string;
   isRead?: boolean;
   readAt?: string;
   createdAt?: string;

@@ -45,12 +45,16 @@ export default function PlayerHome() {
           <Text style={styles.role}>PLAYER</Text>
           <TournamentIcon name="shuttle" size={16} />
           <Pressable
-            accessibilityLabel="Notifications"
+            accessibilityLabel={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
             style={styles.bellButton}
             onPress={() => router.push('/(player)/notifications')}
           >
             <Text style={styles.bell}>♧</Text>
-            {unread > 0 && <View style={styles.bellDot} />}
+            {unread > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text>
+              </View>
+            )}
           </Pressable>
         </View>
         <ImageBackground source={heroBg} style={styles.hero} imageStyle={styles.heroImage}>
@@ -259,17 +263,21 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginLeft: spacing.sm,
   },
-  bellButton: { marginLeft: 'auto' },
+  bellButton: { marginLeft: 'auto', marginRight: 6 },
   bell: { color: colors.white, fontSize: 20 },
-  bellDot: {
+  bellBadge: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: -6,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
     backgroundColor: '#E5484D',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  bellBadgeText: { color: colors.white, fontSize: 9, fontWeight: '900' },
   hero: {
     minHeight: 132,
     borderRadius: radius.lg,
