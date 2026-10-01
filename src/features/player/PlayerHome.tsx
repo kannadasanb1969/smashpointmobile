@@ -9,6 +9,7 @@ import { colors, radius, spacing } from '../../theme';
 import { GlobalUserMenu } from '../../components/common/GlobalUserMenu';
 import { TournamentIcon } from '../../components/common/TournamentIcon';
 import { registrationFeeLabel } from '../organizer/prize';
+import { getTournamentDisplayStatus } from '../organizer/status';
 
 const heroBg = require('../../../assets/images/login-badminton-bg.png');
 const activeEntriesBg = require('../../../assets/images/image2.png');
@@ -26,7 +27,14 @@ export default function PlayerHome() {
   const notifications = useNotifications(user?.id || '');
   const profile = useProfile(profileId);
   const name = profile.data?.fullName || user?.name || user?.fullName || 'Player';
-  const events = (tournaments.data || []).slice(0, 3) as any[];
+  // "Open Tournaments"/"Open events" must exclude genuinely finished tournaments — tournament.status
+  // never progresses past 'PUBLISHED' (there is no COMPLETED lifecycle status column), so the
+  // {status:'PUBLISHED'} API filter above includes completed tournaments too; completionStatus
+  // (same authoritative field tournaments.tsx/tournament/[id].tsx already key off) is what
+  // actually distinguishes them.
+  const events = (tournaments.data || [])
+    .filter((item: any) => getTournamentDisplayStatus(item)?.type !== 'completed')
+    .slice(0, 3) as any[];
   const regs = (registrations.data || []) as any[];
   const unread = typeof notifications.unread.data === 'number' ? notifications.unread.data : 0;
   const dateParts = (value?: string) => {
@@ -183,8 +191,13 @@ function TournamentCard({
   dateParts: (value?: string) => { day: number | string; month: string };
 }) {
   const d = dateParts(item.startDate || item.tournamentDate);
+  // tournament.status never progresses past 'PUBLISHED' — it's not a completion signal. The
+  // authoritative state is completionStatus (same field tournaments.tsx/tournament/[id].tsx use),
+  // with registrationPhase/status only distinguishing open vs. closed registration beneath that.
+  const display = getTournamentDisplayStatus(item);
+  const completed = display?.type === 'completed';
   const status = (item.registrationPhase || item.status || '').toString().toUpperCase();
-  const open = status.includes('OPEN') || status === 'PUBLISHED';
+  const open = !completed && (status.includes('OPEN') || status === 'PUBLISHED');
   const venue = item.venue || item.venueName || item.location || 'Venue TBC';
   const fee = registrationFeeLabel(item);
   // Replaces a generic category count with the actual event type(s) (e.g. "Singles", or
@@ -213,7 +226,7 @@ function TournamentCard({
         <View style={styles.statusRow}>
           <View style={[styles.statusOutlinePill, open && styles.statusOutlinePillOpen]}>
             <Text style={[styles.badge, open && styles.badgeOpen]}>
-              {open ? 'OPEN REGISTRATION' : status || 'UPCOMING'}
+              {completed ? 'COMPLETED' : open ? 'OPEN REGISTRATION' : status || 'UPCOMING'}
             </Text>
           </View>
           {open && (

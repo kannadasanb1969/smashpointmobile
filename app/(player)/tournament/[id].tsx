@@ -348,7 +348,7 @@ function Category({ c, tid, st, regs, results, players, tournamentName }: {
         (fixtures.isLoading ? (
           <Text style={s.muted}>Loading result…</Text>
         ) : (
-          <Result winner={winner} runnerUp={runnerUp} fallback={result} />
+          <Result winner={winner} runnerUp={runnerUp} fallback={result} authoritative={c.result} />
         ))}
       <View style={s.competitionCard}>
         <Text style={s.competitionTitle}>Competition</Text>
@@ -423,13 +423,28 @@ function Stat({ icon, value, label }: { icon: 'people' | 'trophy' | 'clock'; val
     </View>
   );
 }
-function Result({ winner, runnerUp, fallback }: { winner: string[]; runnerUp: string[]; fallback?: any }) {
-  // /api/results (`fallback` here) is the backend-authoritative source; the fixture-derived winner/runnerUp
-  // (computed by walking raw match data) is only used when a result hasn't been generated yet.
+function Result({
+  winner,
+  runnerUp,
+  fallback,
+  authoritative,
+}: {
+  winner: string[];
+  runnerUp: string[];
+  fallback?: any;
+  authoritative?: { winnerParticipantName?: string; runnerUpParticipantName?: string } | null;
+}) {
+  // authoritative (the tournament API's own categories[].result, from completion.repository.js's
+  // completedResultSummaries — the same resolved names the dedicated Results screen is built on)
+  // is the real source of truth and already handles both Singles and Doubles (team names are
+  // pre-joined server-side as "Player 1 / Player 2"). /api/results (`fallback`) only ever returns
+  // participant ids/types, never names, so apiWinner/apiRunnerUp below are dead reads kept only as
+  // a harmless no-op fallback; the fixture-derived winner/runnerUp (walking raw match data) is the
+  // last resort for a result that hasn't been generated as a `results` row yet.
   const apiWinner = fallback?.winnerName || fallback?.winner?.name;
   const apiRunnerUp = fallback?.runnerUpName || fallback?.runnerUp?.name;
-  const w = apiWinner || (winner.length ? winner.join(' / ') : undefined);
-  const r = apiRunnerUp || (runnerUp.length ? runnerUp.join(' / ') : undefined);
+  const w = authoritative?.winnerParticipantName || apiWinner || (winner.length ? winner.join(' / ') : undefined);
+  const r = authoritative?.runnerUpParticipantName || apiRunnerUp || (runnerUp.length ? runnerUp.join(' / ') : undefined);
   return (
     <View style={s.result}>
       <Text style={s.resultText}>🏆 Winner: {w || 'Winner unavailable'}</Text>
