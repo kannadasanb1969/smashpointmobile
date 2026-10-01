@@ -227,6 +227,7 @@ function TournamentResultCard({ item }: { item: any }) {
               key={category.id}
               categoryId={String(category.id)}
               fixtures={normalized}
+              authoritative={category.result}
               result={(results.data || []).find(
                 (entry: any) =>
                   String(entry.tournamentId) === String(item.id) &&
@@ -246,21 +247,29 @@ function ResultPanel({
   categoryId,
   fixtures,
   result,
+  authoritative,
   loading,
   error,
 }: {
   categoryId: string;
   fixtures: any[];
   result: any;
+  authoritative?: { winnerParticipantName?: string; runnerUpParticipantName?: string } | null;
   loading: boolean;
   error: boolean;
 }) {
   const players = usePlayers();
   if (loading || players.isLoading)
     return <Text style={s.resultLoading}>Loading final result…</Text>;
-  // /api/results is the backend-authoritative source (organizer/admin-corrected results included);
-  // fixture-derived winner/runner-up is only a fallback for when a result hasn't been generated yet
-  // but the final fixture is already completed.
+  // authoritative (this category's own result, from completion.repository.js's
+  // completedResultSummaries via the same tournament list response — no extra request) is the
+  // real source of truth and is what the dedicated Results screen and the Tournament Detail
+  // screen are both built from. /api/results (`result` here) only ever returns participant
+  // ids/types, never names, so resultNames() below is a harmless no-op kept only as a fallback;
+  // the fixture-derived winner/runnerUp (walking raw match data) is the last resort for a result
+  // that hasn't been generated as a `results` row yet. Team names come pre-joined server-side as
+  // "Player 1 / Player 2" — split back into individual lines to match the existing card layout.
+  const authoritativeNames = (name?: string) => (name ? name.split(' / ').map((n) => n.trim()) : []);
   const resultNames = (key: string) =>
     participantNames(
       result?.[key] ||
@@ -275,8 +284,10 @@ function ResultPanel({
   );
   const fixtureWinner = getFixtureWinner(final, players.data || []);
   const fixtureRunnerUp = getFixtureRunnerUp(final, players.data || []);
-  const apiWinner = resultNames('winner');
-  const apiRunnerUp = resultNames('runnerUp');
+  const authWinner = authoritativeNames(authoritative?.winnerParticipantName);
+  const authRunnerUp = authoritativeNames(authoritative?.runnerUpParticipantName);
+  const apiWinner = authWinner.length ? authWinner : resultNames('winner');
+  const apiRunnerUp = authRunnerUp.length ? authRunnerUp : resultNames('runnerUp');
   const resolvedWinner = apiWinner.length ? apiWinner : fixtureWinner;
   const resolvedRunnerUp = apiRunnerUp.length ? apiRunnerUp : fixtureRunnerUp;
   return (
