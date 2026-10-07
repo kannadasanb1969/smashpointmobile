@@ -6,13 +6,13 @@
 
 // ---------------- LOCAL ----------------
 
-// Android Emulator (reaches the Mac's own localhost):
+// Android Emulator (reaches the Mac's own localhost). ACTIVE for emulator testing:
 export const API_BASE_URL = "http://10.0.2.2:8787";
 
 // Physical Android Phone (same Wi-Fi network as this Mac).
-// This is this machine's actual LAN IP, observed working this session —
-// update it if the Mac's network address changes:
-// export const API_BASE_URL = "http://192.168.0.100:8787";
+// 10.0.2.2 does NOT work on a real phone - use this Mac's current LAN IP, and add it
+// to plugins/withLanCleartext.js so Android allows plain HTTP to it:
+// export const API_BASE_URL = "http://<MAC_LAN_IP>:8787";
 
 // ---------------- PRODUCTION ----------------
 

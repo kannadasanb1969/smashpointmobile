@@ -1,32 +1,55 @@
-import { Alert, ImageBackground, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, ImageBackground, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScreenContainer } from '../../src/components/common/ScreenContainer';
 import { PrimaryButton } from '../../src/components/common/PrimaryButton';
 import { BackButton } from '../../src/components/common/BackButton';
 import { authApi, normalizeAuthMobile, normalizeAuthMobileDisplay } from '../../src/api/apiClient';
 import { useAuthStore } from '../../src/store/authStore';
+import { ownerHandoffErrorMessage, signInToOwnerApp } from '../../src/services/ownerHandoff';
+import { OWNER_REDIRECT_NOTICE, workspaceParam as workspaceParamFn } from '../../src/utils/loginRoles';
 import { colors, radius, spacing } from '../../src/theme';
 
 export default function VerifyOtp() {
   const params = useLocalSearchParams<{ mobile?: string | string[]; workspace?: string | string[] }>();
   const mobile = Array.isArray(params.mobile) ? params.mobile[0] : params.mobile || '';
   const workspaceParam = Array.isArray(params.workspace) ? params.workspace[0] : params.workspace;
-  const workspace = (
-    workspaceParam === 'ORGANIZER' || workspaceParam === 'ADMIN' ? workspaceParam : 'PLAYER'
-  ) as 'PLAYER' | 'ORGANIZER' | 'ADMIN';
+  const workspace = workspaceParamFn(workspaceParam);
+  const isOwner = workspace === 'OWNER';
   const displayMobile = normalizeAuthMobileDisplay(mobile);
   const [otp, setOtp] = useState('');
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState(false);
   const setSession = useAuthStore((s) => s.setAccessSession);
   const setWorkspace = useAuthStore((s) => s.setWorkspace);
+  const [wait, setWait] = useState(30);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
+
+  const resend = async () => {
+    try {
+      await authApi.requestOtp(normalizeAuthMobile(displayMobile));
+      setWait(30);
+    } catch (e) {
+      Alert.alert('Unable to resend OTP', e instanceof Error ? e.message : 'Please try again.');
+    }
+  };
 
   const verify = async () => {
     if (!/^\d{5}$/.test(otp)) return Alert.alert('Invalid code', 'Enter the 5-digit OTP.');
     setBusy(true);
     try {
       const normalizedMobile = normalizeAuthMobile(displayMobile);
+      if (isOwner) {
+        // Owner = same SmashPoint OTP login, then a one-time handoff to the separate Owner app. No SmashPoint session is kept.
+        const outcome = await signInToOwnerApp(normalizedMobile, otp);
+        router.replace(outcome === 'OPENED' ? '/(auth)/login' : '/(auth)/owner-app-missing');
+        return;
+      }
       const response = await authApi.verifyOtp(normalizedMobile, otp, workspace);
       const data = response.data as { accessToken: string; refreshToken: string; user: Parameters<typeof setSession>[2] };
       await setSession(data.accessToken, data.refreshToken, data.user);
@@ -39,7 +62,7 @@ export default function VerifyOtp() {
             : '/(admin)',
       );
     } catch (e) {
-      Alert.alert('Verification failed', e instanceof Error ? e.message : 'Please try again.');
+      Alert.alert('Verification failed', isOwner ? ownerHandoffErrorMessage(e) : e instanceof Error ? e.message : 'Please try again.');
     } finally {
       setBusy(false);
     }
@@ -69,8 +92,16 @@ export default function VerifyOtp() {
         </Text>
         <Text style={s.tagline}>PLAY • COMPETE • CONNECT</Text>
         <View style={s.content}>
-          <Text style={s.eyebrow}>SECURE SIGN IN</Text>
-          <Text style={s.title}>Verify your number</Text>
+          <Text style={s.eyebrow}>{isOwner ? 'OWNER SELECTED' : 'SECURE SIGN IN'}</Text>
+          <Text style={s.title}>{isOwner ? 'Welcome to SmashPoint' : 'Verify your number'}</Text>
+          {isOwner ? (
+            <View style={s.ownerNotice} accessibilityLabel="Owner selected">
+              <View style={s.ownerIcon}>
+                <Ionicons name="storefront" size={22} color={colors.white} />
+              </View>
+              <Text style={s.ownerNoticeText}>Owner selected. Enter OTP. {OWNER_REDIRECT_NOTICE}</Text>
+            </View>
+          ) : null}
           <Text style={s.copy}>We have sent a 5-digit OTP to</Text>
           <View style={s.numberRow}>
             <Text style={s.number}>+91 {displayMobile}</Text>
@@ -101,10 +132,16 @@ export default function VerifyOtp() {
             />
           </View>
           <Text style={s.hint}>Enter the code to continue</Text>
-          <Text style={s.resend}>
-            Didn’t receive the OTP? <Text style={s.resendAction}>Resend OTP</Text>
-          </Text>
-          <PrimaryButton title={busy ? 'Verifying…' : 'Verify OTP  →'} onPress={verify} />
+          {wait > 0 ? (
+            <Text style={s.resend}>Resend OTP in 00:{String(wait).padStart(2, '0')}</Text>
+          ) : (
+            <Pressable accessibilityRole="button" accessibilityLabel="Resend OTP" onPress={() => void resend()}>
+              <Text style={s.resend}>
+                Didn’t receive the OTP? <Text style={s.resendAction}>Resend OTP</Text>
+              </Text>
+            </Pressable>
+          )}
+          <PrimaryButton title={busy ? (isOwner ? 'Opening Owner…' : 'Verifying…') : 'Verify OTP  →'} onPress={verify} disabled={busy} />
           <View style={s.security}>
             <View style={s.securityIcon}>
               <Text style={s.check}>✓</Text>
@@ -125,8 +162,8 @@ export default function VerifyOtp() {
 const s = StyleSheet.create({
   page: { flex: 1, position: 'relative', paddingTop: spacing.sm },
   backgroundImage: { opacity: 0.12 },
-  tint: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(255,255,255,.86)' },
-  decor: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
+  tint: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(255,255,255,.86)' },
+  decor: { ...StyleSheet.absoluteFill, overflow: 'hidden' },
   arcOne: {
     position: 'absolute',
     width: 270,
@@ -211,7 +248,7 @@ const s = StyleSheet.create({
   boxFocused: { borderColor: colors.primary, borderWidth: 2, backgroundColor: '#F3FAF4' },
   digit: { color: colors.text, fontSize: 25, fontWeight: '900' },
   input: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 2,
     color: 'transparent',
     backgroundColor: 'transparent',
@@ -219,6 +256,9 @@ const s = StyleSheet.create({
     fontSize: 1,
   },
   hint: { color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: 8 },
+  ownerNotice: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFF4E0', borderColor: '#F3D9A4', borderWidth: 1, borderRadius: 14, padding: 12, marginTop: spacing.md },
+  ownerIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  ownerNoticeText: { flex: 1, fontSize: 13, lineHeight: 18, color: colors.text },
   resend: {
     color: colors.muted,
     textAlign: 'center',
