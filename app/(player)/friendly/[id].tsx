@@ -81,7 +81,12 @@ export default function Detail() {
       </View>
 
       <View style={s.actionsGroup}>
-        {owner && match.status === 'OPEN' && <PrimaryButton title="Review Join Requests" onPress={() => router.push({ pathname: '/(player)/friendly/requests', params: { id } })}/>}
+        {owner && match.status === 'OPEN' && (
+          <View style={s.managementActions}>
+            <PrimaryButton title="Review Join Requests" onPress={() => router.push({ pathname: '/(player)/friendly/requests', params: { id } })}/>
+            <PrimaryButton title="Invite Players" onPress={() => router.push({ pathname: '/(player)/friendly/invite', params: { id } })}/>
+          </View>
+        )}
         {!owner && !isParticipant && match.status === 'OPEN' && <PrimaryButton disabled={join.isPending} title={join.isPending ? 'Requesting…' : 'Request to Join'} onPress={() => join.mutate(undefined, { onSuccess: () => Alert.alert('Request sent', 'The host will review your request.'), onError: (e: any) => Alert.alert('Unable to join', e?.message || 'Please try again.') })}/>}
         {owner && !isParticipant && match.status === 'OPEN' && <PrimaryButton disabled={join.isPending} title={join.isPending ? 'Joining…' : '🏸  Join as Player'} onPress={() => join.mutate(undefined, { onSuccess: () => Alert.alert("You're in!", 'You have been added as a player in your own match.'), onError: (e: any) => Alert.alert('Unable to join', e?.message || 'Please try again.') })}/>}
         {owner && isParticipant && (
@@ -246,7 +251,8 @@ const s = StyleSheet.create({
   eyebrowPill: { alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.lime, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
   typePill: { alignSelf: 'flex-start', borderWidth: 1, borderColor: colors.lime, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5 },
   typePillText: { color: colors.lime, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
-  actionsGroup: { gap: spacing.md },
+  actionsGroup: { gap: spacing.lg },
+  managementActions: { gap: spacing.sm },
   playingPill: { alignSelf: 'flex-start', backgroundColor: 'rgba(138, 226, 52, 0.12)', borderWidth: 1, borderColor: 'rgba(138, 226, 52, 0.4)', borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
   playingPillText: { color: colors.lime, fontWeight: '900', fontSize: 13 },
   eyebrow: { color: colors.lime, fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },

@@ -9,6 +9,7 @@ export const friendlyKeys = {
   fixtures: (id: string) => ['friendly-matches', id, 'fixtures'],
   result: (id: string) => ['friendly-matches', id, 'result'],
   standings: (id: string) => ['friendly-matches', id, 'standings'],
+  inviteCandidates: (id: string) => ['friendly-matches', id, 'invite-candidates'],
 };
 export const friendlyIsOwner = (match: any, currentId: string) =>
   Boolean(match?.isCreator) ||
@@ -141,6 +142,16 @@ export const friendlyApi = {
     (await apiClient.post(`/api/friendly-matches/${id}/fixtures`, {})).data,
   resetFixtures: async (id: string) =>
     (await apiClient.post(`/api/friendly-matches/${id}/fixtures/reset`, {})).data,
+  inviteCandidates: async (id: string) =>
+    (await apiClient.get(`/api/friendly-matches/${id}/invite-candidates`)).data,
+  invite: async (x: { id: string; invitedPlayerId: string }) =>
+    (await apiClient.post(`/api/friendly-matches/${x.id}/invitations`, { invitedPlayerId: x.invitedPlayerId })).data,
+  invitation: async (invitationId: string) =>
+    (await apiClient.get(`/api/friendly-matches/invitations/${invitationId}`)).data,
+  acceptInvitation: async (invitationId: string) =>
+    (await apiClient.post(`/api/friendly-matches/invitations/${invitationId}/accept`, {})).data,
+  declineInvitation: async (invitationId: string) =>
+    (await apiClient.post(`/api/friendly-matches/invitations/${invitationId}/decline`, {})).data,
 };
 export const useFriendlyList = () =>
   useQuery({ queryKey: friendlyKeys.all, queryFn: friendlyApi.list });
@@ -181,5 +192,35 @@ export const useFriendlyDecision = (id: string, kind: 'approve' | 'reject') => {
   return useMutation({
     mutationFn: (requestId: string) => friendlyApi[kind]({ id, requestId }),
     onSuccess: () => invalidateFriendly(c, id),
+  });
+};
+export const useFriendlyInviteCandidates = (id: string, enabled: boolean) =>
+  useQuery({
+    queryKey: friendlyKeys.inviteCandidates(id),
+    queryFn: () => friendlyApi.inviteCandidates(id),
+    enabled,
+  });
+// Used from the Notification Centre, which only knows an invitation by id (not the match id
+// ahead of time) — the accept response carries friendlyMatchId back so the right match's
+// detail/participants/requests caches get invalidated, same shape as invalidateFriendly above.
+export const useAcceptFriendlyInvitation = () => {
+  const c = useQueryClient();
+  return useMutation({
+    mutationFn: (invitationId: string) => friendlyApi.acceptInvitation(invitationId),
+    onSuccess: (data: any) => (data?.friendlyMatchId ? invalidateFriendly(c, data.friendlyMatchId) : undefined),
+  });
+};
+export const useDeclineFriendlyInvitation = () =>
+  useMutation({ mutationFn: (invitationId: string) => friendlyApi.declineInvitation(invitationId) });
+export const useFriendlyInvite = (id: string) => {
+  const c = useQueryClient();
+  return useMutation({
+    mutationFn: (invitedPlayerId: string) => friendlyApi.invite({ id, invitedPlayerId }),
+    onSuccess: () =>
+      Promise.all([
+        c.invalidateQueries({ queryKey: friendlyKeys.inviteCandidates(id) }),
+        c.invalidateQueries({ queryKey: friendlyKeys.participants(id) }),
+        c.invalidateQueries({ queryKey: friendlyKeys.detail(id) }),
+      ]),
   });
 };
